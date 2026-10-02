@@ -1,0 +1,67 @@
+fileFormatVersion: 2
+guid: 2d400e5f854d84c62b561fb94b96620d
+ScriptedImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 2
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+  script: {fileID: 11500000, guid: 715df9372183c47e389bb6e19fbc3b52, type: 3}
+  editorImportSettings:
+    generateSecondaryUVSet: 0
+  importSettings:
+    nodeNameMethod: 1
+    animationMethod: 2
+    generateMipMaps: 1
+    texturesReadable: 0
+    defaultMinFilterMode: 9729
+    defaultMagFilterMode: 9729
+    anisotropicFilterLevel: 1
+  instantiationSettings:
+    mask: -1
+    layer: 0
+    skinUpdateWhenOffscreen: 1
+    lightIntensityFactor: 1
+    sceneObjectCreation: 2
+  assetDependencies:
+  - type: 0
+    originalUri: Assets/WarriorRun/Art/Realistic/Models/modular_street_seating/modular_street_seating.bin
+    assetPath: Assets/WarriorRun/Art/Realistic/Models/modular_street_seating/modular_street_seating.bin
+  - type: 1
+    originalUri: Assets/WarriorRun/Art/Realistic/Models/modular_street_seating/textures/modular_street_seating_armrests_nor_gl_1k.jpg
+    assetPath: Assets/WarriorRun/Art/Realistic/Models/modular_street_seating/textures/modular_street_seating_armrests_nor_gl_1k.jpg
+  - type: 1
+    originalUri: Assets/WarriorRun/Art/Realistic/Models/modular_street_seating/textures/modular_street_seating_armrests_diff_1k.jpg
+    assetPath: Assets/WarriorRun/Art/Realistic/Models/modular_street_seating/textures/modular_street_seating_armrests_diff_1k.jpg
+  - type: 1
+    originalUri: Assets/WarriorRun/Art/Realistic/Models/modular_street_seating/textures/modular_street_seating_armrests_arm_1k.jpg
+    assetPath: Assets/WarriorRun/Art/Realistic/Models/modular_street_seating/textures/modular_street_seating_armrests_arm_1k.jpg
+  - type: 1
+    originalUri: Assets/WarriorRun/Art/Realistic/Models/modular_street_seating/textures/modular_street_seating_supports_nor_gl_1k.jpg
+    assetPath: Assets/WarriorRun/Art/Realistic/Models/modular_street_seating/textures/modular_street_seating_supports_nor_gl_1k.jpg
+  - type: 1
+    originalUri: Assets/WarriorRun/Art/Realistic/Models/modular_street_seating/textures/modular_street_seating_supports_diff_1k.jpg
+    assetPath: Assets/WarriorRun/Art/Realistic/Models/modular_street_seating/textures/modular_street_seating_supports_diff_1k.jpg
+  - type: 1
+    originalUri: Assets/WarriorRun/Art/Realistic/Models/modular_street_seating/textures/modular_street_seating_supports_arm_1k.jpg
+    assetPath: Assets/WarriorRun/Art/Realistic/Models/modular_street_seating/textures/modular_street_seating_supports_arm_1k.jpg
+  - type: 1
+    originalUri: Assets/WarriorRun/Art/Realistic/Models/modular_street_seating/textures/modular_street_seating_timber_nor_gl_1k.jpg
+    assetPath: Assets/WarriorRun/Art/Realistic/Models/modular_street_seating/textures/modular_street_seating_timber_nor_gl_1k.jpg
+  - type: 1
+    originalUri: Assets/WarriorRun/Art/Realistic/Models/modular_street_seating/textures/modular_street_seating_timber_diff_1k.jpg
+    assetPath: Assets/WarriorRun/Art/Realistic/Models/modular_street_seating/textures/modular_street_seating_timber_diff_1k.jpg
+  - type: 1
+    originalUri: Assets/WarriorRun/Art/Realistic/Models/modular_street_seating/textures/modular_street_seating_timber_arm_1k.jpg
+    assetPath: Assets/WarriorRun/Art/Realistic/Models/modular_street_seating/textures/modular_street_seating_timber_arm_1k.jpg
+  - type: 1
+    originalUri: Assets/WarriorRun/Art/Realistic/Models/modular_street_seating/textures/modular_street_seating_connectors_nor_gl_1k.jpg
+    assetPath: Assets/WarriorRun/Art/Realistic/Models/modular_street_seating/textures/modular_street_seating_connectors_nor_gl_1k.jpg
+  - type: 1
+    originalUri: Assets/WarriorRun/Art/Realistic/Models/modular_street_seating/textures/modular_street_seating_connectors_diff_1k.jpg
+    assetPath: Assets/WarriorRun/Art/Realistic/Models/modular_street_seating/textures/modular_street_seating_connectors_diff_1k.jpg
+  - type: 1
+    originalUri: Assets/WarriorRun/Art/Realistic/Models/modular_street_seating/textures/modular_street_seating_connectors_arm_1k.jpg
+    assetPath: Assets/WarriorRun/Art/Realistic/Models/modular_street_seating/textures/modular_street_seating_connectors_arm_1k.jpg
+  reportItems: []

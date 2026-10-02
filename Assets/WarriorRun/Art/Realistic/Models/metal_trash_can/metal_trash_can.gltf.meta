@@ -1,0 +1,49 @@
+fileFormatVersion: 2
+guid: 84b35802e05894fc4b2128fa5a35b4da
+ScriptedImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 2
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+  script: {fileID: 11500000, guid: 715df9372183c47e389bb6e19fbc3b52, type: 3}
+  editorImportSettings:
+    generateSecondaryUVSet: 0
+  importSettings:
+    nodeNameMethod: 1
+    animationMethod: 2
+    generateMipMaps: 1
+    texturesReadable: 0
+    defaultMinFilterMode: 9729
+    defaultMagFilterMode: 9729
+    anisotropicFilterLevel: 1
+  instantiationSettings:
+    mask: -1
+    layer: 0
+    skinUpdateWhenOffscreen: 1
+    lightIntensityFactor: 1
+    sceneObjectCreation: 2
+  assetDependencies:
+  - type: 0
+    originalUri: Assets/WarriorRun/Art/Realistic/Models/metal_trash_can/metal_trash_can.bin
+    assetPath: Assets/WarriorRun/Art/Realistic/Models/metal_trash_can/metal_trash_can.bin
+  - type: 1
+    originalUri: Assets/WarriorRun/Art/Realistic/Models/metal_trash_can/textures/metal_trash_can_nor_gl_2k.jpg
+    assetPath: Assets/WarriorRun/Art/Realistic/Models/metal_trash_can/textures/metal_trash_can_nor_gl_2k.jpg
+  - type: 1
+    originalUri: Assets/WarriorRun/Art/Realistic/Models/metal_trash_can/textures/metal_trash_can_diff_2k.jpg
+    assetPath: Assets/WarriorRun/Art/Realistic/Models/metal_trash_can/textures/metal_trash_can_diff_2k.jpg
+  - type: 1
+    originalUri: Assets/WarriorRun/Art/Realistic/Models/metal_trash_can/textures/metal_trash_can_arm_2k.jpg
+    assetPath: Assets/WarriorRun/Art/Realistic/Models/metal_trash_can/textures/metal_trash_can_arm_2k.jpg
+  - type: 1
+    originalUri: Assets/WarriorRun/Art/Realistic/Models/metal_trash_can/textures/metal_trash_can_rust_nor_gl_2k.jpg
+    assetPath: Assets/WarriorRun/Art/Realistic/Models/metal_trash_can/textures/metal_trash_can_rust_nor_gl_2k.jpg
+  - type: 1
+    originalUri: Assets/WarriorRun/Art/Realistic/Models/metal_trash_can/textures/metal_trash_can_rust_diff_2k.jpg
+    assetPath: Assets/WarriorRun/Art/Realistic/Models/metal_trash_can/textures/metal_trash_can_rust_diff_2k.jpg
+  - type: 1
+    originalUri: Assets/WarriorRun/Art/Realistic/Models/metal_trash_can/textures/metal_trash_can_rust_arm_2k.jpg
+    assetPath: Assets/WarriorRun/Art/Realistic/Models/metal_trash_can/textures/metal_trash_can_rust_arm_2k.jpg
+  reportItems: []

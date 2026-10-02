@@ -1,0 +1,3 @@
+Quaternius - Ultimate Stylized Nature Pack
+https://quaternius.com — License: CC0 (public domain)
+Mirror: github.com/walterpalladino/godot-quaternius-ultimate-stylized-nature

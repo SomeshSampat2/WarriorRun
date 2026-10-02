@@ -1,0 +1,21 @@
+# Unity serialized files — treat as binary to avoid corrupt merges
+*.unity binary
+*.prefab binary
+*.asset binary
+*.mat binary
+*.controller binary
+*.anim binary
+*.preset binary
+*.physicMaterial binary
+
+# Large binaries
+*.png binary
+*.jpg binary
+*.hdr binary
+*.bin binary
+*.gltf binary
+*.ttf binary
+*.otf binary
+*.wav binary
+*.mp3 binary
+*.ogg binary

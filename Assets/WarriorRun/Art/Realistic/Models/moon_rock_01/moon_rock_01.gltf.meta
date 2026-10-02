@@ -1,0 +1,40 @@
+fileFormatVersion: 2
+guid: 1958073fdf9b74eb98c69612a8eaf120
+ScriptedImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 2
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+  script: {fileID: 11500000, guid: 715df9372183c47e389bb6e19fbc3b52, type: 3}
+  editorImportSettings:
+    generateSecondaryUVSet: 0
+  importSettings:
+    nodeNameMethod: 1
+    animationMethod: 2
+    generateMipMaps: 1
+    texturesReadable: 0
+    defaultMinFilterMode: 9729
+    defaultMagFilterMode: 9729
+    anisotropicFilterLevel: 1
+  instantiationSettings:
+    mask: -1
+    layer: 0
+    skinUpdateWhenOffscreen: 1
+    lightIntensityFactor: 1
+    sceneObjectCreation: 2
+  assetDependencies:
+  - type: 0
+    originalUri: Assets/WarriorRun/Art/Realistic/Models/moon_rock_01/moon_rock_01.bin
+    assetPath: Assets/WarriorRun/Art/Realistic/Models/moon_rock_01/moon_rock_01.bin
+  - type: 1
+    originalUri: Assets/WarriorRun/Art/Realistic/Models/moon_rock_01/textures/moon_rock_01_nor_gl_2k.jpg
+    assetPath: Assets/WarriorRun/Art/Realistic/Models/moon_rock_01/textures/moon_rock_01_nor_gl_2k.jpg
+  - type: 1
+    originalUri: Assets/WarriorRun/Art/Realistic/Models/moon_rock_01/textures/moon_rock_01_diff_2k.jpg
+    assetPath: Assets/WarriorRun/Art/Realistic/Models/moon_rock_01/textures/moon_rock_01_diff_2k.jpg
+  - type: 1
+    originalUri: Assets/WarriorRun/Art/Realistic/Models/moon_rock_01/textures/moon_rock_01_arm_2k.jpg
+    assetPath: Assets/WarriorRun/Art/Realistic/Models/moon_rock_01/textures/moon_rock_01_arm_2k.jpg
+  reportItems: []

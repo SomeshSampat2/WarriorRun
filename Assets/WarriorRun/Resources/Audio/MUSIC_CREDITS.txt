@@ -1,0 +1,13 @@
+BACKGROUND MUSIC — LICENSE
+=========================================
+
+  beat_1.mp3 .. beat_3.mp3
+  music_loop.mp3
+              Action chiptunes from "5 Action Chiptunes" pack
+              by Juhani Junkala (SubspaceAudio)
+
+  License:    CC0 1.0 — public domain.
+              Free for any use, no attribution required.
+              https://creativecommons.org/publicdomain/zero/1.0/
+
+  Source:     https://opengameart.org/content/5-chiptunes-action
