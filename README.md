@@ -24,6 +24,8 @@ photogrammetry-scanned assets instead of cartoon props.
 - Zone-specific obstacles and scenery, difficulty ramps with distance
 - Coins, power-ups, score chasing — runs until you crash
 - Menu diorama with animated scenery, parallax, and ambient audio
+- Animated loading screen between scenes — the game world streams in
+  asynchronously behind a spinner + progress bar, so transitions never hitch
 
 ## Tech Stack
 

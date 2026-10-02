@@ -22,7 +22,7 @@ namespace WarriorRun.UI
         public void OnPlayClicked()
         {
             AudioManager.Instance?.Play(Sfx.Start);
-            SceneManager.LoadScene(1);
+            LoadingOverlay.RunToScene(1);   // async load behind the loading screen — no freeze-frame transition
         }
 
         public void OnSoundClicked()

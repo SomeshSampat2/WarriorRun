@@ -208,7 +208,8 @@ namespace WarriorRun.Core
         void LoadScene(int index)
         {
             Time.timeScale = 1f;
-            SceneManager.LoadScene(index);
+            WarriorRun.UI.LoadingOverlay.RunToScene(index,
+                index == 0 ? "RETURNING TO CAMP" : "RE-ENTERING THE ARENA");
         }
 
         void SetState(RunState next)
