@@ -35,6 +35,7 @@ namespace WarriorRun.UI
         Image[] dots;
         TMP_Text tipText;
         TMP_Text pctText;
+        TMP_Text captionText;
         float shown;
 
         static readonly string[] Tips =
@@ -114,7 +115,7 @@ namespace WarriorRun.UI
 
             Txt(Box("Title", transform, new Vector2(0f, 330f), new Vector2(1000f, 120f)),
                 "WARRIOR RUN", 88f, Gold);
-            Txt(Box("Cap", transform, new Vector2(0f, 240f), new Vector2(1000f, 60f)),
+            captionText = Txt(Box("Cap", transform, new Vector2(0f, 240f), new Vector2(1000f, 60f)),
                 caption, 34f, SoftWht);
 
             // comet spinner: 8 dots chasing a circle
@@ -169,6 +170,15 @@ namespace WarriorRun.UI
             op.allowSceneActivation = true;
             yield return null;                     // wait for activation + first frame
             yield return new WaitForSecondsRealtime(0.35f);
+
+            // compile every shader variant + flush garbage while the overlay
+            // still hides the scene — otherwise the first gameplay frames pay
+            // for it as mid-run hitches
+            if (captionText != null) captionText.text = "WARMING UP";
+            yield return null;
+            Shader.WarmupAllShaders();
+            System.GC.Collect();
+            yield return null;
 
             // fade the overlay away over the new scene
             float f0 = Time.unscaledTime;

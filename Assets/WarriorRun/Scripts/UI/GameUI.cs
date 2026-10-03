@@ -47,12 +47,24 @@ namespace WarriorRun.UI
             gm.ScoreChanged -= RefreshHud;
         }
 
+        int lastScore = -1, lastCoins = -1;
+
         void RefreshHud()
         {
             var gm = GameManager.Instance;
             if (gm == null) return;
-            if (scoreText != null) scoreText.text = gm.Score.ToString();
-            if (coinText != null) coinText.text = gm.Coins.ToString();
+            // only rewrite when a value actually changed — per-frame text churn
+            // allocates strings and forces TMP re-layout every frame
+            if (gm.Score != lastScore)
+            {
+                lastScore = gm.Score;
+                if (scoreText != null) scoreText.text = lastScore.ToString();
+            }
+            if (gm.Coins != lastCoins)
+            {
+                lastCoins = gm.Coins;
+                if (coinText != null) coinText.text = lastCoins.ToString();
+            }
         }
 
         void OnState(RunState s)

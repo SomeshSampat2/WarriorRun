@@ -1746,7 +1746,7 @@ Camera:
     width: 1
     height: 1
   near clip plane: 0.5
-  far clip plane: 220
+  far clip plane: 175
   field of view: 58
   orthographic: 0
   orthographic size: 5
@@ -8018,7 +8018,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WarriorRun.World.TrackManager
   tileLength: 24
-  tilesAhead: 7
+  tilesAhead: 5
   despawnBehind: 30
   laneWidth: 2.2
   tilePrefab: {fileID: 5612022630766858737, guid: d3aeec7129d174fcfbe12c4c663e801a, type: 3}
