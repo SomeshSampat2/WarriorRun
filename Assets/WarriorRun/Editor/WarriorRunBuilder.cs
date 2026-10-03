@@ -83,6 +83,10 @@ namespace WarriorRun.EditorTools
         /// <summary>Batch-mode APK build: honors -buildOutput from `unity build -o`.</summary>
         public static void BuildAndroid()
         {
+            // GLES3 only — Vulkan hits driver-specific flicker artifacts on
+            // some real GPUs; GLES3 is universal and cheap enough here
+            PlayerSettings.SetGraphicsAPIs(BuildTarget.Android,
+                new[] { UnityEngine.Rendering.GraphicsDeviceType.OpenGLES3 });
             string outPath = "Builds/Android/WarriorRun.apk";
             var args = System.Environment.GetCommandLineArgs();
             for (int i = 0; i < args.Length - 1; i++)

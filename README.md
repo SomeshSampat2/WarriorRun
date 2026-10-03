@@ -10,7 +10,7 @@ photogrammetry-scanned assets instead of cartoon props.
 ## Download & Play
 
 - **Android:** grab the APK from
-  [Releases](../../releases/latest) → `WarriorRun.apk` (~168 MB).
+  [Releases](../../releases/latest) → `WarriorRun.apk` (~127 MB).
   Sideload it: copy to the device, tap, allow "install unknown apps" when asked.
 - **iOS:** no downloadable build — iOS apps can't be sideloaded without Apple
   signing. To run it on an iPhone/iPad, build from source: install Unity's
