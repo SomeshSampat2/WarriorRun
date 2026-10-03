@@ -11,8 +11,11 @@ namespace WarriorRun.UI
         public TMP_Text bestText;
         public TMP_Text soundLabel;
 
+        void Awake() => Debug.Log("[WR] MenuUI.Awake");
+
         void Start()
         {
+            Debug.Log("[WR] MenuUI.Start");
             AudioManager.Instance?.PlayMusic(); // menu groove — carries into gameplay
             if (bestText != null)
                 bestText.text = SaveSystem.BestScore > 0 ? "BEST  " + SaveSystem.BestScore : "";

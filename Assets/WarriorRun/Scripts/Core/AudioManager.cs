@@ -34,6 +34,7 @@ namespace WarriorRun.Core
             if (inst != null && inst != this) { Destroy(gameObject); return; }
             inst = this;
             DontDestroyOnLoad(gameObject);
+            Debug.Log("[WR] AudioManager.Awake begin");
 
             sfxSource = GetComponent<AudioSource>();
             sfxSource.playOnAwake = false;
@@ -60,6 +61,7 @@ namespace WarriorRun.Core
             // constant BGM from the very first frame — the object survives
             // every scene load so the track never restarts mid-session
             PlayMusic();
+            Debug.Log("[WR] AudioManager.Awake done clips=" + clips.Length);
         }
 
         AudioClip FindClip(string name)

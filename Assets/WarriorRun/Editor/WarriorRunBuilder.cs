@@ -94,6 +94,15 @@ namespace WarriorRun.EditorTools
             Log("APK -> " + outPath + " (" + report.summary.totalSize + " bytes)");
         }
 
+        /// <summary>Development APK — script errors and logs flow to logcat. Diagnostics only.</summary>
+        public static void BuildAndroidDev()
+        {
+            var scenes = new[] { Root + "/Scenes/Menu.unity", Root + "/Scenes/Game.unity" };
+            var report = BuildPipeline.BuildPlayer(scenes, "Builds/Android/WarriorRun-dev.apk",
+                BuildTarget.Android, BuildOptions.Development);
+            Log("DEV APK -> Builds/Android/WarriorRun-dev.apk result=" + report.summary.result);
+        }
+
         /// <summary>Batch entry: full procedural rebuild, then the APK — one shot.</summary>
         public static void RebuildAndBuildAndroid()
         {
