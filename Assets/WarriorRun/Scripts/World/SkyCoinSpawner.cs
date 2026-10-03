@@ -31,6 +31,10 @@ namespace WarriorRun.World
         {
             var pc = FindFirstObjectByType<Player.PlayerController>();
             player = pc != null ? pc.transform : null;
+            // fill the coin pool up front — pattern bursts would otherwise
+            // Instantiate mid-frame and hitch when flight begins
+            if (coinPrefab != null)
+                for (int i = 0; i < 16; i++) Recycle(Instantiate(coinPrefab));
         }
 
         void Update()

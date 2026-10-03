@@ -13,11 +13,17 @@ namespace WarriorRun.World
 
         float baseY;
         float phase;
+        static bool burstWarmed;   // first pickup shouldn't pay shader-compile cost
 
         void OnEnable()
         {
             baseY = transform.position.y;
             phase = Random.value * Mathf.PI * 2f;
+            if (!burstWarmed && burstPrefab != null)
+            {
+                burstWarmed = true;
+                Destroy(Instantiate(burstPrefab, transform.position, Quaternion.identity));
+            }
         }
 
         void Update()

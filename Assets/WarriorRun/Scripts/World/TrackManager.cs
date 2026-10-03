@@ -105,6 +105,52 @@ namespace WarriorRun.World
             var fg = GameObject.Find("FarGround");
             var fr = fg != null ? fg.GetComponent<Renderer>() : null;
             if (fr != null) farGroundMat = fr.material; // instantiates a private copy
+            Prewarm();
+        }
+
+        /// <summary>
+        /// Instantiation is the expensive part of spawning — every pool starts
+        /// empty, so the first copies of each tile/decor/obstacle would hitch the
+        /// frame the moment they spawn mid-run (and again at every zone change).
+        /// Pre-instantiate a small reserve of every prefab and push the meshes to
+        /// the GPU up front; the cost lands during the loading screen instead.
+        /// </summary>
+        void Prewarm()
+        {
+            var seen = new HashSet<GameObject>();
+            var list = new List<(GameObject prefab, int count)>();
+            void Add(GameObject p, int n) { if (p != null && seen.Add(p)) list.Add((p, n)); }
+            void AddMany(GameObject[] arr, int n) { if (arr != null) foreach (var p in arr) Add(p, n); }
+
+            Add(tilePrefab, 2);
+            Add(coinPrefab, 14);
+            Add(spikePrefab, 3);
+            Add(lowBarrierPrefab, 3);
+            Add(highBarrierPrefab, 3);
+            Add(wallBlockPrefab, 3);
+            AddMany(powerUpPrefabs, 2);
+            AddMany(decorPrefabs, 4);
+            AddMany(wallFeaturePrefabs, 3);
+            if (zones != null)
+                foreach (var z in zones)
+                {
+                    if (z == null) continue;
+                    Add(z.tilePrefab, 2);
+                    AddMany(z.tilePrefabs, 2);
+                    AddMany(z.decorPrefabs, 4);
+                    AddMany(z.featurePrefabs, 3);
+                    AddMany(z.obstaclePrefabs, 3);
+                }
+
+            var meshes = new HashSet<Mesh>();
+            foreach (var (prefab, count) in list)
+            {
+                foreach (var mf in prefab.GetComponentsInChildren<MeshFilter>(true))
+                    if (mf.sharedMesh != null && meshes.Add(mf.sharedMesh))
+                        mf.sharedMesh.UploadMeshData(false);
+                for (int i = 0; i < count; i++)
+                    ReturnToPool(GetFromPool(prefab));
+            }
         }
 
         void Update()
