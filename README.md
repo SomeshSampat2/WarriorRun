@@ -11,6 +11,19 @@ photogrammetry-scanned assets instead of cartoon props.
 
 ![Warrior Run gameplay](docs/media/gameplay.gif)
 
+<p>
+<img src="docs/media/clip_01.gif" width="19%">
+<img src="docs/media/clip_02.gif" width="19%">
+<img src="docs/media/clip_03.gif" width="19%">
+<img src="docs/media/clip_04.gif" width="19%">
+<img src="docs/media/clip_05.gif" width="19%">
+<img src="docs/media/clip_06.gif" width="19%">
+<img src="docs/media/clip_07.gif" width="19%">
+<img src="docs/media/clip_08.gif" width="19%">
+<img src="docs/media/clip_09.gif" width="19%">
+<img src="docs/media/clip_10.gif" width="19%">
+</p>
+
 ▶ Full video: [docs/media/gameplay.mp4](docs/media/gameplay.mp4)
 
 ## Download & Play
