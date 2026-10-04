@@ -7,6 +7,10 @@ photogrammetry-scanned assets instead of cartoon props.
 
 > This project is open source. Read it, fork it, learn from it, ship your own runner.
 
+## Gameplay Demo
+
+https://github.com/SomeshSampat2/WarriorRun/raw/main/docs/media/gameplay.mp4
+
 ## Download & Play
 
 - **Android:** grab the APK from
