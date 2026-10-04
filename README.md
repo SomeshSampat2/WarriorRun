@@ -9,7 +9,9 @@ photogrammetry-scanned assets instead of cartoon props.
 
 ## Gameplay Demo
 
-https://github.com/SomeshSampat2/WarriorRun/raw/main/docs/media/gameplay.mp4
+![Warrior Run gameplay](docs/media/gameplay.gif)
+
+▶ Full video: [docs/media/gameplay.mp4](docs/media/gameplay.mp4)
 
 ## Download & Play
 
