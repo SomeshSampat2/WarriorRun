@@ -1,353 +1,486 @@
 {
-  "asset": {
-    "generator": "Khronos glTF Blender I/O v4.0.44",
-    "version": "2.0"
-  },
-  "scene": 0,
-  "scenes": [
-    {
-      "name": "Scene",
-      "nodes": [
-        0
-      ]
-    }
-  ],
-  "nodes": [
-    {
-      "mesh": 0,
-      "name": "street_lamp_02"
-    }
-  ],
-  "materials": [
-    {
-      "doubleSided": true,
-      "name": "street_lamp_02",
-      "normalTexture": {
-        "index": 0
-      },
-      "pbrMetallicRoughness": {
-        "baseColorTexture": {
-          "index": 1
-        },
-        "metallicRoughnessTexture": {
-          "index": 2
-        }
-      }
-    },
-    {
-      "alphaMode": "BLEND",
-      "doubleSided": true,
-      "name": "street_lamp_02_glass",
-      "normalTexture": {
-        "index": 3
-      },
-      "pbrMetallicRoughness": {
-        "baseColorTexture": {
-          "index": 4
-        },
-        "metallicRoughnessTexture": {
-          "index": 5
-        }
-      }
-    },
-    {
-      "doubleSided": true,
-      "name": "street_lamp_02_bulb",
-      "normalTexture": {
-        "index": 6
-      },
-      "pbrMetallicRoughness": {
-        "baseColorTexture": {
-          "index": 7
-        },
-        "metallicRoughnessTexture": {
-          "index": 8
-        }
-      }
-    }
-  ],
-  "meshes": [
-    {
-      "name": "street_lamp_02_stem_mesh",
-      "primitives": [
-        {
-          "attributes": {
-            "POSITION": 0,
-            "NORMAL": 1,
-            "TEXCOORD_0": 2
-          },
-          "indices": 3,
-          "material": 0
-        },
-        {
-          "attributes": {
-            "POSITION": 4,
-            "NORMAL": 5,
-            "TEXCOORD_0": 6
-          },
-          "indices": 7,
-          "material": 1
-        },
-        {
-          "attributes": {
-            "POSITION": 8,
-            "NORMAL": 9,
-            "TEXCOORD_0": 10
-          },
-          "indices": 11,
-          "material": 2
-        }
-      ]
-    }
-  ],
-  "textures": [
-    {
-      "sampler": 0,
-      "source": 0
-    },
-    {
-      "sampler": 0,
-      "source": 1
-    },
-    {
-      "sampler": 0,
-      "source": 2
-    },
-    {
-      "sampler": 0,
-      "source": 0
-    },
-    {
-      "sampler": 0,
-      "source": 3
-    },
-    {
-      "sampler": 0,
-      "source": 2
-    },
-    {
-      "sampler": 0,
-      "source": 0
-    },
-    {
-      "sampler": 0,
-      "source": 1
-    },
-    {
-      "sampler": 0,
-      "source": 2
-    }
-  ],
-  "images": [
-    {
-      "mimeType": "image/jpeg",
-      "name": "street_lamp_02_nor_gl",
-      "uri": "textures/street_lamp_02_nor_gl_2k.jpg"
-    },
-    {
-      "mimeType": "image/jpeg",
-      "name": "street_lamp_02_diff",
-      "uri": "textures/street_lamp_02_diff_2k.jpg"
-    },
-    {
-      "mimeType": "image/jpeg",
-      "name": "street_lamp_02_metal-street_lamp_02_rough",
-      "uri": "textures/street_lamp_02_arm_2k.jpg"
-    },
-    {
-      "mimeType": "image/jpeg",
-      "name": "street_lamp_02_diff-street_lamp_02_opacity",
-      "uri": "textures/street_lamp_02_diff_2k.jpg"
-    }
-  ],
-  "accessors": [
-    {
-      "bufferView": 0,
-      "componentType": 5126,
-      "count": 12348,
-      "max": [
-        0.19324655830860138,
-        1.2801183462142944,
-        0.8067892789840698
-      ],
-      "min": [
-        -0.19324660301208496,
-        -0.394923597574234,
-        -2.31228973746056e-8
-      ],
-      "type": "VEC3"
-    },
-    {
-      "bufferView": 1,
-      "componentType": 5126,
-      "count": 12348,
-      "type": "VEC3"
-    },
-    {
-      "bufferView": 2,
-      "componentType": 5126,
-      "count": 12348,
-      "type": "VEC2"
-    },
-    {
-      "bufferView": 3,
-      "componentType": 5123,
-      "count": 59334,
-      "type": "SCALAR"
-    },
-    {
-      "bufferView": 4,
-      "componentType": 5126,
-      "count": 256,
-      "max": [
-        0.17394877970218658,
-        0.9191105365753174,
-        0.7871694564819336
-      ],
-      "min": [
-        -0.17387129366397858,
-        0.5472171306610107,
-        0.4399160146713257
-      ],
-      "type": "VEC3"
-    },
-    {
-      "bufferView": 5,
-      "componentType": 5126,
-      "count": 256,
-      "type": "VEC3"
-    },
-    {
-      "bufferView": 6,
-      "componentType": 5126,
-      "count": 256,
-      "type": "VEC2"
-    },
-    {
-      "bufferView": 7,
-      "componentType": 5123,
-      "count": 1008,
-      "type": "SCALAR"
-    },
-    {
-      "bufferView": 8,
-      "componentType": 5126,
-      "count": 148,
-      "max": [
-        0.02999456226825714,
-        0.7111213207244873,
-        0.6435661911964417
-      ],
-      "min": [
-        -0.029995445162057877,
-        0.6366691589355469,
-        0.5835762023925781
-      ],
-      "type": "VEC3"
-    },
-    {
-      "bufferView": 9,
-      "componentType": 5126,
-      "count": 148,
-      "type": "VEC3"
-    },
-    {
-      "bufferView": 10,
-      "componentType": 5126,
-      "count": 148,
-      "type": "VEC2"
-    },
-    {
-      "bufferView": 11,
-      "componentType": 5123,
-      "count": 672,
-      "type": "SCALAR"
-    }
-  ],
-  "bufferViews": [
-    {
-      "buffer": 0,
-      "byteLength": 148176,
-      "byteOffset": 0,
-      "target": 34962
-    },
-    {
-      "buffer": 0,
-      "byteLength": 148176,
-      "byteOffset": 148176,
-      "target": 34962
-    },
-    {
-      "buffer": 0,
-      "byteLength": 98784,
-      "byteOffset": 296352,
-      "target": 34962
-    },
-    {
-      "buffer": 0,
-      "byteLength": 118668,
-      "byteOffset": 395136,
-      "target": 34963
-    },
-    {
-      "buffer": 0,
-      "byteLength": 3072,
-      "byteOffset": 513804,
-      "target": 34962
-    },
-    {
-      "buffer": 0,
-      "byteLength": 3072,
-      "byteOffset": 516876,
-      "target": 34962
-    },
-    {
-      "buffer": 0,
-      "byteLength": 2048,
-      "byteOffset": 519948,
-      "target": 34962
-    },
-    {
-      "buffer": 0,
-      "byteLength": 2016,
-      "byteOffset": 521996,
-      "target": 34963
-    },
-    {
-      "buffer": 0,
-      "byteLength": 1776,
-      "byteOffset": 524012,
-      "target": 34962
-    },
-    {
-      "buffer": 0,
-      "byteLength": 1776,
-      "byteOffset": 525788,
-      "target": 34962
-    },
-    {
-      "buffer": 0,
-      "byteLength": 1184,
-      "byteOffset": 527564,
-      "target": 34962
-    },
-    {
-      "buffer": 0,
-      "byteLength": 1344,
-      "byteOffset": 528748,
-      "target": 34963
-    }
-  ],
-  "samplers": [
-    {
-      "magFilter": 9729,
-      "minFilter": 9987
-    }
-  ],
-  "buffers": [
-    {
-      "byteLength": 530092,
-      "uri": "street_lamp_02.bin"
-    }
-  ]
+	"asset":{
+		"generator":"Khronos glTF Blender I/O v5.2.40",
+		"version":"2.0"
+	},
+	"extensionsUsed":[
+		"KHR_materials_emissive_strength"
+	],
+	"scene":0,
+	"scenes":[
+		{
+			"name":"Scene",
+			"nodes":[
+				0,
+				1,
+				2,
+				3,
+				4
+			]
+		}
+	],
+	"nodes":[
+		{
+			"mesh":0,
+			"name":"arm"
+		},
+		{
+			"mesh":1,
+			"name":"base"
+		},
+		{
+			"mesh":2,
+			"name":"bulb"
+		},
+		{
+			"mesh":3,
+			"name":"head"
+		},
+		{
+			"mesh":4,
+			"name":"pole"
+		}
+	],
+	"materials":[
+		{
+			"doubleSided":true,
+			"name":"M_lpa",
+			"pbrMetallicRoughness":{
+				"baseColorFactor":[
+					0.03423020616173744,
+					0.05112205073237419,
+					0.07382776588201523,
+					1
+				],
+				"metallicFactor":0.30000001192092896,
+				"roughnessFactor":0.8500000238418579
+			}
+		},
+		{
+			"doubleSided":true,
+			"name":"M_lpb",
+			"pbrMetallicRoughness":{
+				"baseColorFactor":[
+					0.03423020616173744,
+					0.05112205073237419,
+					0.07382776588201523,
+					1
+				],
+				"metallicFactor":0.30000001192092896,
+				"roughnessFactor":0.8500000238418579
+			}
+		},
+		{
+			"doubleSided":true,
+			"emissiveFactor":[
+				1,
+				0.8199636936187744,
+				0.39929330348968506
+			],
+			"extensions":{
+				"KHR_materials_emissive_strength":{
+					"emissiveStrength":2
+				}
+			},
+			"name":"M_lb",
+			"pbrMetallicRoughness":{
+				"baseColorFactor":[
+					1,
+					0.8199636936187744,
+					0.39929330348968506,
+					1
+				],
+				"metallicFactor":0,
+				"roughnessFactor":0.8500000238418579
+			}
+		},
+		{
+			"doubleSided":true,
+			"name":"M_lh",
+			"pbrMetallicRoughness":{
+				"baseColorFactor":[
+					0.03423020616173744,
+					0.05112205073237419,
+					0.07382776588201523,
+					1
+				],
+				"metallicFactor":0.30000001192092896,
+				"roughnessFactor":0.8500000238418579
+			}
+		},
+		{
+			"doubleSided":true,
+			"name":"M_lp",
+			"pbrMetallicRoughness":{
+				"baseColorFactor":[
+					0.03423020616173744,
+					0.05112205073237419,
+					0.07382776588201523,
+					1
+				],
+				"metallicFactor":0.30000001192092896,
+				"roughnessFactor":0.8500000238418579
+			}
+		}
+	],
+	"meshes":[
+		{
+			"name":"Cylinder.002",
+			"primitives":[
+				{
+					"attributes":{
+						"POSITION":0,
+						"NORMAL":1,
+						"TEXCOORD_0":2
+					},
+					"indices":3,
+					"material":0
+				}
+			]
+		},
+		{
+			"name":"Cylinder.001",
+			"primitives":[
+				{
+					"attributes":{
+						"POSITION":4,
+						"NORMAL":5,
+						"TEXCOORD_0":6
+					},
+					"indices":7,
+					"material":1
+				}
+			]
+		},
+		{
+			"name":"Sphere",
+			"primitives":[
+				{
+					"attributes":{
+						"POSITION":8,
+						"NORMAL":9,
+						"TEXCOORD_0":10
+					},
+					"indices":11,
+					"material":2
+				}
+			]
+		},
+		{
+			"name":"Cone",
+			"primitives":[
+				{
+					"attributes":{
+						"POSITION":12,
+						"NORMAL":13,
+						"TEXCOORD_0":14
+					},
+					"indices":15,
+					"material":3
+				}
+			]
+		},
+		{
+			"name":"Cylinder",
+			"primitives":[
+				{
+					"attributes":{
+						"POSITION":16,
+						"NORMAL":17,
+						"TEXCOORD_0":18
+					},
+					"indices":15,
+					"material":4
+				}
+			]
+		}
+	],
+	"accessors":[
+		{
+			"bufferView":0,
+			"componentType":5126,
+			"count":30,
+			"max":[
+				0.13913752138614655,
+				1.1258022785186768,
+				0.4155822694301605
+			],
+			"min":[
+				-0.015459749847650528,
+				1.099426031112671,
+				0.38986736536026
+			],
+			"type":"VEC3"
+		},
+		{
+			"bufferView":1,
+			"componentType":5126,
+			"count":30,
+			"type":"VEC3"
+		},
+		{
+			"bufferView":2,
+			"componentType":5126,
+			"count":30,
+			"type":"VEC2"
+		},
+		{
+			"bufferView":3,
+			"componentType":5123,
+			"count":72,
+			"type":"SCALAR"
+		},
+		{
+			"bufferView":4,
+			"componentType":5126,
+			"count":48,
+			"max":[
+				0.0386492945253849,
+				-0.2609202563762665,
+				0.4420439600944519
+			],
+			"min":[
+				-0.038649339228868484,
+				-0.394923597574234,
+				0.3647453188896179
+			],
+			"type":"VEC3"
+		},
+		{
+			"bufferView":5,
+			"componentType":5126,
+			"count":48,
+			"type":"VEC3"
+		},
+		{
+			"bufferView":6,
+			"componentType":5126,
+			"count":48,
+			"type":"VEC2"
+		},
+		{
+			"bufferView":7,
+			"componentType":5123,
+			"count":84,
+			"type":"SCALAR"
+		},
+		{
+			"bufferView":8,
+			"componentType":5126,
+			"count":52,
+			"max":[
+				0.16448956727981567,
+				0.9994814395904541,
+				0.43647655844688416
+			],
+			"min":[
+				0.09832572937011719,
+				0.9577401876449585,
+				0.37031272053718567
+			],
+			"type":"VEC3"
+		},
+		{
+			"bufferView":9,
+			"componentType":5126,
+			"count":52,
+			"type":"VEC3"
+		},
+		{
+			"bufferView":10,
+			"componentType":5126,
+			"count":52,
+			"type":"VEC2"
+		},
+		{
+			"bufferView":11,
+			"componentType":5123,
+			"count":192,
+			"type":"SCALAR"
+		},
+		{
+			"bufferView":12,
+			"componentType":5126,
+			"count":34,
+			"max":[
+				0.19324655830860138,
+				1.1293644905090332,
+				0.46523353457450867
+			],
+			"min":[
+				0.06956873834133148,
+				0.9618603587150574,
+				0.34155574440956116
+			],
+			"type":"VEC3"
+		},
+		{
+			"bufferView":13,
+			"componentType":5126,
+			"count":34,
+			"type":"VEC3"
+		},
+		{
+			"bufferView":14,
+			"componentType":5126,
+			"count":34,
+			"type":"VEC2"
+		},
+		{
+			"bufferView":15,
+			"componentType":5123,
+			"count":84,
+			"type":"SCALAR"
+		},
+		{
+			"bufferView":16,
+			"componentType":5126,
+			"count":34,
+			"max":[
+				0.017392169684171677,
+				1.1126141548156738,
+				0.4207868278026581
+			],
+			"min":[
+				-0.017392214387655258,
+				-0.394923597574234,
+				0.38600245118141174
+			],
+			"type":"VEC3"
+		},
+		{
+			"bufferView":17,
+			"componentType":5126,
+			"count":34,
+			"type":"VEC3"
+		},
+		{
+			"bufferView":18,
+			"componentType":5126,
+			"count":34,
+			"type":"VEC2"
+		}
+	],
+	"bufferViews":[
+		{
+			"buffer":0,
+			"byteLength":360,
+			"byteOffset":0,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":360,
+			"byteOffset":360,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":240,
+			"byteOffset":720,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":144,
+			"byteOffset":960,
+			"target":34963
+		},
+		{
+			"buffer":0,
+			"byteLength":576,
+			"byteOffset":1104,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":576,
+			"byteOffset":1680,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":384,
+			"byteOffset":2256,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":168,
+			"byteOffset":2640,
+			"target":34963
+		},
+		{
+			"buffer":0,
+			"byteLength":624,
+			"byteOffset":2808,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":624,
+			"byteOffset":3432,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":416,
+			"byteOffset":4056,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":384,
+			"byteOffset":4472,
+			"target":34963
+		},
+		{
+			"buffer":0,
+			"byteLength":408,
+			"byteOffset":4856,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":408,
+			"byteOffset":5264,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":272,
+			"byteOffset":5672,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":168,
+			"byteOffset":5944,
+			"target":34963
+		},
+		{
+			"buffer":0,
+			"byteLength":408,
+			"byteOffset":6112,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":408,
+			"byteOffset":6520,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":272,
+			"byteOffset":6928,
+			"target":34962
+		}
+	],
+	"buffers":[
+		{
+			"byteLength":7200,
+			"uri":"street_lamp_02.bin"
+		}
+	]
 }

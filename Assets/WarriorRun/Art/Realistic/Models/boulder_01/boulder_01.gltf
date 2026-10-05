@@ -15,30 +15,28 @@
 	"nodes":[
 		{
 			"mesh":0,
-			"name":"boulder_01"
+			"name":"boulder"
 		}
 	],
 	"materials":[
 		{
 			"doubleSided":true,
-			"name":"boulder_01",
-			"normalTexture":{
-				"index":0
-			},
+			"name":"M_r",
 			"pbrMetallicRoughness":{
-				"baseColorTexture":{
-					"index":1
-				},
+				"baseColorFactor":[
+					0.4045408368110657,
+					0.3488648235797882,
+					0.29321613907814026,
+					1
+				],
 				"metallicFactor":0,
-				"metallicRoughnessTexture":{
-					"index":2
-				}
+				"roughnessFactor":0.8500000238418579
 			}
 		}
 	],
 	"meshes":[
 		{
-			"name":"rock_PROXY_5m.002",
+			"name":"Icosphere",
 			"primitives":[
 				{
 					"attributes":{
@@ -52,108 +50,71 @@
 			]
 		}
 	],
-	"textures":[
-		{
-			"sampler":0,
-			"source":0
-		},
-		{
-			"sampler":0,
-			"source":1
-		},
-		{
-			"sampler":0,
-			"source":2
-		}
-	],
-	"images":[
-		{
-			"mimeType":"image/jpeg",
-			"name":"boulder_01_nor_gl",
-			"uri":"textures/boulder_01_nor_gl_2k.jpg"
-		},
-		{
-			"mimeType":"image/jpeg",
-			"name":"boulder_01_diff",
-			"uri":"textures/boulder_01_diff_2k.jpg"
-		},
-		{
-			"mimeType":"image/jpeg",
-			"name":"boulder_01_rough",
-			"uri":"textures/boulder_01_arm_2k.jpg"
-		}
-	],
 	"accessors":[
 		{
 			"bufferView":0,
 			"componentType":5126,
-			"count":56938,
+			"count":240,
 			"max":[
-				0.5239759087562561,
-				0.9320645332336426,
-				0.8893348574638367
+				0.5172815322875977,
+				0.7360640168190002,
+				0.9162049293518066
 			],
 			"min":[
-				-0.7512483596801758,
-				-0.07774113118648529,
-				-0.9483399987220764
+				-0.7380028963088989,
+				-0.2887926697731018,
+				-0.9630959630012512
 			],
 			"type":"VEC3"
 		},
 		{
 			"bufferView":1,
 			"componentType":5126,
-			"count":56938,
+			"count":240,
 			"type":"VEC3"
 		},
 		{
 			"bufferView":2,
 			"componentType":5126,
-			"count":56938,
+			"count":240,
 			"type":"VEC2"
 		},
 		{
 			"bufferView":3,
 			"componentType":5123,
-			"count":79833,
+			"count":240,
 			"type":"SCALAR"
 		}
 	],
 	"bufferViews":[
 		{
 			"buffer":0,
-			"byteLength":683256,
+			"byteLength":2880,
 			"byteOffset":0,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":683256,
-			"byteOffset":683256,
+			"byteLength":2880,
+			"byteOffset":2880,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":455504,
-			"byteOffset":1366512,
+			"byteLength":1920,
+			"byteOffset":5760,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":159666,
-			"byteOffset":1822016,
+			"byteLength":480,
+			"byteOffset":7680,
 			"target":34963
-		}
-	],
-	"samplers":[
-		{
-			"magFilter":9729,
-			"minFilter":9987
 		}
 	],
 	"buffers":[
 		{
-			"byteLength":1981684,
+			"byteLength":8160,
 			"uri":"boulder_01.bin"
 		}
 	]

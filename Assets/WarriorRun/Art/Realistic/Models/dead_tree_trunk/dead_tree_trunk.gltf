@@ -8,37 +8,64 @@
 		{
 			"name":"Scene",
 			"nodes":[
-				0
+				0,
+				1,
+				2,
+				3
 			]
 		}
 	],
 	"nodes":[
 		{
 			"mesh":0,
-			"name":"dead_tree_trunk"
+			"name":"stub0"
+		},
+		{
+			"mesh":1,
+			"name":"stub1"
+		},
+		{
+			"mesh":2,
+			"name":"stub2"
+		},
+		{
+			"mesh":3,
+			"name":"trunk"
 		}
 	],
 	"materials":[
 		{
 			"doubleSided":true,
-			"name":"dead_tree_trunk",
-			"normalTexture":{
-				"index":0
-			},
+			"name":"M_dead2",
 			"pbrMetallicRoughness":{
-				"baseColorTexture":{
-					"index":1
-				},
+				"baseColorFactor":[
+					0.19751642644405365,
+					0.11657577753067017,
+					0.05284162610769272,
+					1
+				],
 				"metallicFactor":0,
-				"metallicRoughnessTexture":{
-					"index":2
-				}
+				"roughnessFactor":0.8500000238418579
+			}
+		},
+		{
+			"doubleSided":true,
+			"name":"M_dead",
+			"pbrMetallicRoughness":{
+				"baseColorFactor":[
+					0.32972902059555054,
+					0.20109573006629944,
+					0.0915183499455452,
+					1
+				],
+				"metallicFactor":0,
+				"roughnessFactor":0.8500000238418579
 			}
 		}
 	],
 	"meshes":[
 		{
-			"name":"dead_tree",
+			"name":"Cone.001",
 			"primitives":[
 				{
 					"attributes":{
@@ -50,110 +77,265 @@
 					"material":0
 				}
 			]
-		}
-	],
-	"textures":[
-		{
-			"sampler":0,
-			"source":0
 		},
 		{
-			"sampler":0,
-			"source":1
+			"name":"Cone.002",
+			"primitives":[
+				{
+					"attributes":{
+						"POSITION":4,
+						"NORMAL":5,
+						"TEXCOORD_0":6
+					},
+					"indices":3,
+					"material":0
+				}
+			]
 		},
 		{
-			"sampler":0,
-			"source":2
-		}
-	],
-	"images":[
-		{
-			"mimeType":"image/jpeg",
-			"name":"dead_tree_trunk_nor_gl",
-			"uri":"textures/dead_tree_trunk_nor_gl_2k.jpg"
+			"name":"Cone.003",
+			"primitives":[
+				{
+					"attributes":{
+						"POSITION":7,
+						"NORMAL":8,
+						"TEXCOORD_0":9
+					},
+					"indices":3,
+					"material":0
+				}
+			]
 		},
 		{
-			"mimeType":"image/jpeg",
-			"name":"dead_tree_trunk_diff",
-			"uri":"textures/dead_tree_trunk_diff_2k.jpg"
-		},
-		{
-			"mimeType":"image/jpeg",
-			"name":"dead_tree_trunk_rough",
-			"uri":"textures/dead_tree_trunk_arm_2k.jpg"
+			"name":"Cone",
+			"primitives":[
+				{
+					"attributes":{
+						"POSITION":10,
+						"NORMAL":11,
+						"TEXCOORD_0":12
+					},
+					"indices":13,
+					"material":1
+				}
+			]
 		}
 	],
 	"accessors":[
 		{
 			"bufferView":0,
 			"componentType":5126,
-			"count":11634,
+			"count":26,
 			"max":[
-				1.5119144916534424,
-				0.2620735168457031,
-				0.10649115592241287
+				0.4104250967502594,
+				0.21157170832157135,
+				0.037223853170871735
 			],
 			"min":[
-				-1.5391530990600586,
-				-0.027714470401406288,
-				-0.1707257628440857
+				0.156943216919899,
+				0.03409186005592346,
+				-0.1668408215045929
 			],
 			"type":"VEC3"
 		},
 		{
 			"bufferView":1,
 			"componentType":5126,
-			"count":11634,
+			"count":26,
 			"type":"VEC3"
 		},
 		{
 			"bufferView":2,
 			"componentType":5126,
-			"count":11634,
+			"count":26,
 			"type":"VEC2"
 		},
 		{
 			"bufferView":3,
 			"componentType":5123,
-			"count":61077,
+			"count":60,
+			"type":"SCALAR"
+		},
+		{
+			"bufferView":4,
+			"componentType":5126,
+			"count":26,
+			"max":[
+				-0.1832968145608902,
+				0.2844786047935486,
+				0.07432253658771515
+			],
+			"min":[
+				-0.44210976362228394,
+				0.06720717251300812,
+				-0.0831793025135994
+			],
+			"type":"VEC3"
+		},
+		{
+			"bufferView":5,
+			"componentType":5126,
+			"count":26,
+			"type":"VEC3"
+		},
+		{
+			"bufferView":6,
+			"componentType":5126,
+			"count":26,
+			"type":"VEC2"
+		},
+		{
+			"bufferView":7,
+			"componentType":5126,
+			"count":26,
+			"max":[
+				0.40612974762916565,
+				0.15594688057899475,
+				0.10152710974216461
+			],
+			"min":[
+				0.1586579978466034,
+				0.016931936144828796,
+				-0.13628007471561432
+			],
+			"type":"VEC3"
+		},
+		{
+			"bufferView":8,
+			"componentType":5126,
+			"count":26,
+			"type":"VEC3"
+		},
+		{
+			"bufferView":9,
+			"componentType":5126,
+			"count":26,
+			"type":"VEC2"
+		},
+		{
+			"bufferView":10,
+			"componentType":5126,
+			"count":34,
+			"max":[
+				0.413530170917511,
+				0.2385096698999405,
+				0.3950321674346924
+			],
+			"min":[
+				-0.4407687783241272,
+				-0.027714475989341736,
+				-0.4592667818069458
+			],
+			"type":"VEC3"
+		},
+		{
+			"bufferView":11,
+			"componentType":5126,
+			"count":34,
+			"type":"VEC3"
+		},
+		{
+			"bufferView":12,
+			"componentType":5126,
+			"count":34,
+			"type":"VEC2"
+		},
+		{
+			"bufferView":13,
+			"componentType":5123,
+			"count":84,
 			"type":"SCALAR"
 		}
 	],
 	"bufferViews":[
 		{
 			"buffer":0,
-			"byteLength":139608,
+			"byteLength":312,
 			"byteOffset":0,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":139608,
-			"byteOffset":139608,
+			"byteLength":312,
+			"byteOffset":312,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":93072,
-			"byteOffset":279216,
+			"byteLength":208,
+			"byteOffset":624,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":122154,
-			"byteOffset":372288,
+			"byteLength":120,
+			"byteOffset":832,
 			"target":34963
-		}
-	],
-	"samplers":[
+		},
 		{
-			"magFilter":9729,
-			"minFilter":9987
+			"buffer":0,
+			"byteLength":312,
+			"byteOffset":952,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":312,
+			"byteOffset":1264,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":208,
+			"byteOffset":1576,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":312,
+			"byteOffset":1784,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":312,
+			"byteOffset":2096,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":208,
+			"byteOffset":2408,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":408,
+			"byteOffset":2616,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":408,
+			"byteOffset":3024,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":272,
+			"byteOffset":3432,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":168,
+			"byteOffset":3704,
+			"target":34963
 		}
 	],
 	"buffers":[
 		{
-			"byteLength":494444,
+			"byteLength":3872,
 			"uri":"dead_tree_trunk.bin"
 		}
 	]

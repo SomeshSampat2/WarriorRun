@@ -23,10 +23,10 @@ RenderSettings:
   m_AmbientSkyColor: {r: 0.65882355, g: 0.8235294, b: 0.89411765, a: 1}
   m_AmbientEquatorColor: {r: 0.95686275, g: 0.89411765, b: 0.7607843, a: 1}
   m_AmbientGroundColor: {r: 0.4117647, g: 0.4745098, b: 0.3529412, a: 1}
-  m_AmbientIntensity: 1.08
-  m_AmbientMode: 0
+  m_AmbientIntensity: 1.1
+  m_AmbientMode: 1
   m_SubtractiveShadowColor: {r: 0.42, g: 0.478, b: 0.627, a: 1}
-  m_SkyboxMaterial: {fileID: 2100000, guid: f34a93695fb40499998c62c296287386, type: 2}
+  m_SkyboxMaterial: {fileID: 2100000, guid: cae2185ee735b4aa48a9b483e331c27b, type: 2}
   m_HaloStrength: 0.5
   m_FlareStrength: 1
   m_FlareFadeSpeed: 3
@@ -8046,6 +8046,13 @@ MonoBehaviour:
   - {fileID: 1059553836043304133, guid: e1a2ff671a6b149c2ade1deb25a7644c, type: 3}
   - {fileID: 3077193016554501535, guid: 9115718cdf6af4e6ab3bbd31f3972490, type: 3}
   - {fileID: 76402139883640826, guid: 3f8ac21f9b926475099094c0bad0825e, type: 3}
+  extraObstaclePrefabs:
+  - {fileID: 5066017152018779877, guid: 9467c425c215b4a58a87628af43a5b7b, type: 3}
+  - {fileID: 4951328096760823840, guid: 86cf1691515424ac9a2e525b2fb71bea, type: 3}
+  - {fileID: 1956377288037848445, guid: 319f710d1f40a48ffb554b9a81506693, type: 3}
+  - {fileID: 1980950516183685109, guid: b788fc08cbf4642628d72a63aaf0907a, type: 3}
+  - {fileID: 8070853691993907654, guid: 6869e877c09044cdfaa091aac7d8ed64, type: 3}
+  - {fileID: 3826217158287055835, guid: a5ee74dc37b324f6c9ec0eac35112adf, type: 3}
   zones:
   - name: Temple
     tilePrefab: {fileID: 5612022630766858737, guid: d3aeec7129d174fcfbe12c4c663e801a, type: 3}
@@ -8097,10 +8104,11 @@ MonoBehaviour:
     fogColor: {r: 0.65882355, g: 0.8117647, b: 0.627451, a: 1}
     obstaclePrefabs:
     - {fileID: 1936372208613945763, guid: bcd6c9e18dbcd4334a3adfc962c8aa3e, type: 3}
-    - {fileID: 9069882298455517385, guid: 0689273c3cafd467ab10d687f7481ac8, type: 3}
-    - {fileID: 3163639641291135768, guid: 1e948f4f56dc1406bbfc9d4fff26d987, type: 3}
     - {fileID: 8383600894567037711, guid: ab417f31dd027453cb50019ff44783ba, type: 3}
-    - {fileID: 1936372208613945763, guid: bcd6c9e18dbcd4334a3adfc962c8aa3e, type: 3}
+    - {fileID: 3281289681380608209, guid: b7b4505fe721b42efa297688c92665ae, type: 3}
+    - {fileID: 9069882298455517385, guid: 0689273c3cafd467ab10d687f7481ac8, type: 3}
+    - {fileID: 7170266962053889369, guid: a5c3af75092e64b17a7081f180c7f283, type: 3}
+    - {fileID: 3163639641291135768, guid: 1e948f4f56dc1406bbfc9d4fff26d987, type: 3}
   - name: Vault
     tilePrefab: {fileID: 3933390300556320834, guid: c44fd1992075b4323bce8b12b24f0809, type: 3}
     tilePrefabs: []
@@ -8153,9 +8161,9 @@ MonoBehaviour:
     obstaclePrefabs:
     - {fileID: 8383600894567037711, guid: ab417f31dd027453cb50019ff44783ba, type: 3}
     - {fileID: 1159825913340327478, guid: 5f54f76618b064060a73c9a38dbab357, type: 3}
+    - {fileID: 747110951833997378, guid: acd43fbe00f4f4a0daabbf43818c2f15, type: 3}
     - {fileID: 5109750126399816496, guid: 5fb450c6c44ac465c8f1b3db3a03a1a6, type: 3}
-    - {fileID: 8383600894567037711, guid: ab417f31dd027453cb50019ff44783ba, type: 3}
-    - {fileID: 1159825913340327478, guid: 5f54f76618b064060a73c9a38dbab357, type: 3}
+    - {fileID: 7170266962053889369, guid: a5c3af75092e64b17a7081f180c7f283, type: 3}
   - name: City
     tilePrefab: {fileID: 8086240059344856668, guid: 74691a893166648e99c834fea57b144c, type: 3}
     tilePrefabs:
@@ -8177,11 +8185,10 @@ MonoBehaviour:
     obstaclePrefabs:
     - {fileID: 3713133495832259143, guid: 676f0389490e045dc8424d7a3ef428b9, type: 3}
     - {fileID: 3971449016277979330, guid: 8174d664657eb4bdb891c0235fe781d7, type: 3}
+    - {fileID: 3281289681380608209, guid: b7b4505fe721b42efa297688c92665ae, type: 3}
     - {fileID: 7639794324020555634, guid: cf540d2a301364a3cb6a174b4dae19cc, type: 3}
     - {fileID: 9112218809173026769, guid: e001ca46738e7463fb571b0c22d3496c, type: 3}
-    - {fileID: 3713133495832259143, guid: 676f0389490e045dc8424d7a3ef428b9, type: 3}
-    - {fileID: 5601331380839015215, guid: 4613d5cf836d243819fbbc420d424826, type: 3}
-    - {fileID: 5601331380839015215, guid: 4613d5cf836d243819fbbc420d424826, type: 3}
+    - {fileID: 7170266962053889369, guid: a5c3af75092e64b17a7081f180c7f283, type: 3}
   - name: Lagoon
     tilePrefab: {fileID: 921953487036536263, guid: 1daee1acca65a412f83aeebc14e21117, type: 3}
     tilePrefabs: []
@@ -8202,14 +8209,80 @@ MonoBehaviour:
     obstaclePrefabs:
     - {fileID: 7014770392190154715, guid: e7adf678463d746bc8e3b5824a577ee7, type: 3}
     - {fileID: 3812621136592397740, guid: b31fc135dbcb347e2aa9088a2242d2be, type: 3}
+    - {fileID: 747110951833997378, guid: acd43fbe00f4f4a0daabbf43818c2f15, type: 3}
     - {fileID: 2562635449034535890, guid: 62c339d16495749feb94be57ebd654b1, type: 3}
-    - {fileID: 7014770392190154715, guid: e7adf678463d746bc8e3b5824a577ee7, type: 3}
-  tilesPerZone: 5
+  - name: Frost
+    tilePrefab: {fileID: 8066426915676797235, guid: f33deef40f2d14309bf4d8e98d374b74, type: 3}
+    tilePrefabs:
+    - {fileID: 8066426915676797235, guid: f33deef40f2d14309bf4d8e98d374b74, type: 3}
+    - {fileID: 589956755268964936, guid: 09cfd5d5961fa4e278bad99cb374f520, type: 3}
+    decorPrefabs:
+    - {fileID: 6919172926993432416, guid: 070ac4acc67a64e98a80db617dfb9cc8, type: 3}
+    - {fileID: 370968408488389434, guid: e0271d0c7792548878fb5d9abbc56a30, type: 3}
+    - {fileID: 5610020821953417227, guid: 2859350e65be04f7f9c3fa745f401128, type: 3}
+    - {fileID: 3682354290275832180, guid: 5ff947f55afe74825a2c2c8ed66bd03c, type: 3}
+    - {fileID: 6855845848258740969, guid: 97e39a88597534571910dc017237f663, type: 3}
+    featurePrefabs: []
+    decorXMin: 5.8
+    decorXMax: 15
+    decorCount: 11
+    featureCount: 0
+    fogColor: {r: 0.8627451, g: 0.92156863, b: 0.9490196, a: 1}
+    obstaclePrefabs:
+    - {fileID: 4951328096760823840, guid: 86cf1691515424ac9a2e525b2fb71bea, type: 3}
+    - {fileID: 1956377288037848445, guid: 319f710d1f40a48ffb554b9a81506693, type: 3}
+    - {fileID: 630009258849609508, guid: f0a61ca8d15f748b19095ff3ddfcc37c, type: 3}
+    - {fileID: 1956377288037848445, guid: 319f710d1f40a48ffb554b9a81506693, type: 3}
+  - name: Ember
+    tilePrefab: {fileID: 6808682820586014636, guid: f4e115e07eb0b49838403690c176dd28, type: 3}
+    tilePrefabs:
+    - {fileID: 6808682820586014636, guid: f4e115e07eb0b49838403690c176dd28, type: 3}
+    - {fileID: 9166483867964692084, guid: 5f17ef1d52f1f454f9e1fd88942f8f09, type: 3}
+    decorPrefabs:
+    - {fileID: 8514050096509545244, guid: f42cb09caa7b64bd3b6d3dd033984175, type: 3}
+    - {fileID: 8764244198640454453, guid: 14e3fcd5e27ca4264b383b728cea6f7c, type: 3}
+    - {fileID: 4240095252747085820, guid: 0f691c546c48d41e9a934fe426d8e334, type: 3}
+    - {fileID: 7888147738125388011, guid: d50fa765e50c24deeb9fd778c5e6d9b8, type: 3}
+    - {fileID: 8514050096509545244, guid: f42cb09caa7b64bd3b6d3dd033984175, type: 3}
+    featurePrefabs: []
+    decorXMin: 5.8
+    decorXMax: 15
+    decorCount: 11
+    featureCount: 0
+    fogColor: {r: 0.23529412, g: 0.16862746, b: 0.16470589, a: 1}
+    obstaclePrefabs:
+    - {fileID: 3826217158287055835, guid: a5ee74dc37b324f6c9ec0eac35112adf, type: 3}
+    - {fileID: 8070853691993907654, guid: 6869e877c09044cdfaa091aac7d8ed64, type: 3}
+    - {fileID: 747110951833997378, guid: acd43fbe00f4f4a0daabbf43818c2f15, type: 3}
+    - {fileID: 3826217158287055835, guid: a5ee74dc37b324f6c9ec0eac35112adf, type: 3}
+  - name: Neon
+    tilePrefab: {fileID: 5987605028912946006, guid: b070b60e522e443819c84e7d71c3d384, type: 3}
+    tilePrefabs:
+    - {fileID: 5987605028912946006, guid: b070b60e522e443819c84e7d71c3d384, type: 3}
+    - {fileID: 7152427601077356022, guid: 56eb44b7b9e664be291e361215837624, type: 3}
+    decorPrefabs:
+    - {fileID: 7522591630085366611, guid: bd7128277988846619ebd167953924d0, type: 3}
+    - {fileID: 146557355958309122, guid: d40d0151347334f808ba0921871ab1a9, type: 3}
+    - {fileID: 7477485376577015341, guid: 79780556eabaa40f0bd835df6d03a657, type: 3}
+    - {fileID: 7522591630085366611, guid: bd7128277988846619ebd167953924d0, type: 3}
+    - {fileID: 146557355958309122, guid: d40d0151347334f808ba0921871ab1a9, type: 3}
+    featurePrefabs: []
+    decorXMin: 5.8
+    decorXMax: 15
+    decorCount: 10
+    featureCount: 0
+    fogColor: {r: 0.105882354, g: 0.11764706, b: 0.22745098, a: 1}
+    obstaclePrefabs:
+    - {fileID: 1980950516183685109, guid: b788fc08cbf4642628d72a63aaf0907a, type: 3}
+    - {fileID: 1918914165324149453, guid: ac27f46166a6647e3af5f2932ac80216, type: 3}
+    - {fileID: 1980950516183685109, guid: b788fc08cbf4642628d72a63aaf0907a, type: 3}
+    - {fileID: 5066017152018779877, guid: 9467c425c215b4a58a87628af43a5b7b, type: 3}
+  tilesPerZone: 14
   fogLerpSpeed: 0.35
   farGroundDim: 0.62
   safeTiles: 2
-  baseObstacleChance: 0.22
-  maxObstacleChance: 0.4
+  baseObstacleChance: 0.18
+  maxObstacleChance: 0.33
   coinRowChance: 0.55
   powerUpChance: 0.07
 --- !u!4 &1631464196
@@ -10219,7 +10292,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 13
   m_Type: 1
-  m_Color: {r: 1, g: 0.96, b: 0.88, a: 1}
+  m_Color: {r: 1, g: 0.92941177, b: 0.7882353, a: 1}
   m_Intensity: 1.35
   m_Range: 10
   m_SpotAngle: 30

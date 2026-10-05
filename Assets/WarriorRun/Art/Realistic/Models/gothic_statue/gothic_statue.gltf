@@ -1,165 +1,550 @@
 {
-  "asset": {
-    "generator": "Khronos glTF Blender I/O v5.1.20",
-    "version": "2.0"
-  },
-  "scene": 0,
-  "scenes": [
-    {
-      "name": "Scene",
-      "nodes": [
-        0
-      ]
-    }
-  ],
-  "nodes": [
-    {
-      "mesh": 0,
-      "name": "gothic_statue",
-      "translation": [
-        -0.028923194855451584,
-        1.1918599605560303,
-        0.2721009850502014
-      ]
-    }
-  ],
-  "materials": [
-    {
-      "doubleSided": true,
-      "name": "gothic_statue",
-      "normalTexture": {
-        "index": 0
-      },
-      "pbrMetallicRoughness": {
-        "baseColorTexture": {
-          "index": 1
-        },
-        "metallicFactor": 0,
-        "metallicRoughnessTexture": {
-          "index": 2
-        }
-      }
-    }
-  ],
-  "meshes": [
-    {
-      "name": "Plane",
-      "primitives": [
-        {
-          "attributes": {
-            "POSITION": 0,
-            "NORMAL": 1,
-            "TEXCOORD_0": 2
-          },
-          "indices": 3,
-          "material": 0
-        }
-      ]
-    }
-  ],
-  "textures": [
-    {
-      "sampler": 0,
-      "source": 0
-    },
-    {
-      "sampler": 0,
-      "source": 1
-    },
-    {
-      "sampler": 0,
-      "source": 2
-    }
-  ],
-  "images": [
-    {
-      "mimeType": "image/jpeg",
-      "name": "gothic_statue_nor_gl",
-      "uri": "textures/gothic_statue_nor_gl_2k.jpg"
-    },
-    {
-      "mimeType": "image/jpeg",
-      "name": "gothic_statue_diff",
-      "uri": "textures/gothic_statue_diff_2k.jpg"
-    },
-    {
-      "mimeType": "image/jpeg",
-      "name": "gothic_statue_rough",
-      "uri": "textures/gothic_statue_arm_2k.jpg"
-    }
-  ],
-  "accessors": [
-    {
-      "bufferView": 0,
-      "componentType": 5126,
-      "count": 23314,
-      "max": [
-        0.7231897115707397,
-        0.5321175456047058,
-        0.1022685244679451
-      ],
-      "min": [
-        -0.754274308681488,
-        -1.2077802419662476,
-        -1.4614895582199097
-      ],
-      "type": "VEC3"
-    },
-    {
-      "bufferView": 1,
-      "componentType": 5126,
-      "count": 23314,
-      "type": "VEC3"
-    },
-    {
-      "bufferView": 2,
-      "componentType": 5126,
-      "count": 23314,
-      "type": "VEC2"
-    },
-    {
-      "bufferView": 3,
-      "componentType": 5123,
-      "count": 83217,
-      "type": "SCALAR"
-    }
-  ],
-  "bufferViews": [
-    {
-      "buffer": 0,
-      "byteLength": 279768,
-      "byteOffset": 0,
-      "target": 34962
-    },
-    {
-      "buffer": 0,
-      "byteLength": 279768,
-      "byteOffset": 279768,
-      "target": 34962
-    },
-    {
-      "buffer": 0,
-      "byteLength": 186512,
-      "byteOffset": 559536,
-      "target": 34962
-    },
-    {
-      "buffer": 0,
-      "byteLength": 166434,
-      "byteOffset": 746048,
-      "target": 34963
-    }
-  ],
-  "samplers": [
-    {
-      "magFilter": 9729,
-      "minFilter": 9987
-    }
-  ],
-  "buffers": [
-    {
-      "byteLength": 912484,
-      "uri": "gothic_statue.bin"
-    }
-  ]
+	"asset":{
+		"generator":"Khronos glTF Blender I/O v5.2.40",
+		"version":"2.0"
+	},
+	"scene":0,
+	"scenes":[
+		{
+			"name":"Scene",
+			"nodes":[
+				0,
+				1,
+				2,
+				3,
+				4,
+				5
+			]
+		}
+	],
+	"nodes":[
+		{
+			"mesh":0,
+			"name":"arm1"
+		},
+		{
+			"mesh":1,
+			"name":"arm-1"
+		},
+		{
+			"mesh":2,
+			"name":"face"
+		},
+		{
+			"mesh":3,
+			"name":"hood"
+		},
+		{
+			"mesh":4,
+			"name":"plinth"
+		},
+		{
+			"mesh":5,
+			"name":"robe"
+		}
+	],
+	"materials":[
+		{
+			"doubleSided":true,
+			"name":"M_ga",
+			"pbrMetallicRoughness":{
+				"baseColorFactor":[
+					0.5795466303825378,
+					0.5113978385925293,
+					0.39929330348968506,
+					1
+				],
+				"metallicFactor":0,
+				"roughnessFactor":0.8500000238418579
+			}
+		},
+		{
+			"doubleSided":true,
+			"name":"M_gf",
+			"pbrMetallicRoughness":{
+				"baseColorFactor":[
+					0.3586539030075073,
+					0.302125483751297,
+					0.2195197194814682,
+					1
+				],
+				"metallicFactor":0,
+				"roughnessFactor":0.8500000238418579
+			}
+		},
+		{
+			"doubleSided":true,
+			"name":"M_gh",
+			"pbrMetallicRoughness":{
+				"baseColorFactor":[
+					0.3586539030075073,
+					0.302125483751297,
+					0.2195197194814682,
+					1
+				],
+				"metallicFactor":0,
+				"roughnessFactor":0.8500000238418579
+			}
+		},
+		{
+			"doubleSided":true,
+			"name":"M_spl",
+			"pbrMetallicRoughness":{
+				"baseColorFactor":[
+					0.3586539030075073,
+					0.302125483751297,
+					0.2195197194814682,
+					1
+				],
+				"metallicFactor":0,
+				"roughnessFactor":0.8500000238418579
+			}
+		},
+		{
+			"doubleSided":true,
+			"name":"M_gr",
+			"pbrMetallicRoughness":{
+				"baseColorFactor":[
+					0.5795466303825378,
+					0.5113978385925293,
+					0.39929330348968506,
+					1
+				],
+				"metallicFactor":0,
+				"roughnessFactor":0.8500000238418579
+			}
+		}
+	],
+	"meshes":[
+		{
+			"name":"Cylinder.001",
+			"primitives":[
+				{
+					"attributes":{
+						"POSITION":0,
+						"NORMAL":1,
+						"TEXCOORD_0":2
+					},
+					"indices":3,
+					"material":0
+				}
+			]
+		},
+		{
+			"name":"Cylinder",
+			"primitives":[
+				{
+					"attributes":{
+						"POSITION":4,
+						"NORMAL":5,
+						"TEXCOORD_0":6
+					},
+					"indices":3,
+					"material":0
+				}
+			]
+		},
+		{
+			"name":"Sphere",
+			"primitives":[
+				{
+					"attributes":{
+						"POSITION":7,
+						"NORMAL":8,
+						"TEXCOORD_0":9
+					},
+					"indices":10,
+					"material":1
+				}
+			]
+		},
+		{
+			"name":"Cone.001",
+			"primitives":[
+				{
+					"attributes":{
+						"POSITION":11,
+						"NORMAL":12,
+						"TEXCOORD_0":13
+					},
+					"indices":14,
+					"material":2
+				}
+			]
+		},
+		{
+			"name":"Cube",
+			"primitives":[
+				{
+					"attributes":{
+						"POSITION":15,
+						"NORMAL":16,
+						"TEXCOORD_0":17
+					},
+					"indices":18,
+					"material":3
+				}
+			]
+		},
+		{
+			"name":"Cone",
+			"primitives":[
+				{
+					"attributes":{
+						"POSITION":19,
+						"NORMAL":20,
+						"TEXCOORD_0":21
+					},
+					"indices":22,
+					"material":4
+				}
+			]
+		}
+	],
+	"accessors":[
+		{
+			"bufferView":0,
+			"componentType":5126,
+			"count":30,
+			"max":[
+				0.3534701466560364,
+				1.1724683046340942,
+				-0.09173521399497986
+			],
+			"min":[
+				0.1443115621805191,
+				0.8786157369613647,
+				-0.5696603059768677
+			],
+			"type":"VEC3"
+		},
+		{
+			"bufferView":1,
+			"componentType":5126,
+			"count":30,
+			"type":"VEC3"
+		},
+		{
+			"bufferView":2,
+			"componentType":5126,
+			"count":30,
+			"type":"VEC2"
+		},
+		{
+			"bufferView":3,
+			"componentType":5123,
+			"count":72,
+			"type":"SCALAR"
+		},
+		{
+			"bufferView":4,
+			"componentType":5126,
+			"count":30,
+			"max":[
+				-0.23324258625507355,
+				1.1724683046340942,
+				-0.09173521399497986
+			],
+			"min":[
+				-0.4424011707305908,
+				0.8786157369613647,
+				-0.5696603059768677
+			],
+			"type":"VEC3"
+		},
+		{
+			"bufferView":5,
+			"componentType":5126,
+			"count":30,
+			"type":"VEC3"
+		},
+		{
+			"bufferView":6,
+			"componentType":5126,
+			"count":30,
+			"type":"VEC2"
+		},
+		{
+			"bufferView":7,
+			"componentType":5126,
+			"count":61,
+			"max":[
+				0.08850623667240143,
+				1.5744638442993164,
+				-0.173691064119339
+			],
+			"min":[
+				-0.17743726074695587,
+				1.281925916671753,
+				-0.35985150933265686
+			],
+			"type":"VEC3"
+		},
+		{
+			"bufferView":8,
+			"componentType":5126,
+			"count":61,
+			"type":"VEC3"
+		},
+		{
+			"bufferView":9,
+			"componentType":5126,
+			"count":61,
+			"type":"VEC2"
+		},
+		{
+			"bufferView":10,
+			"componentType":5123,
+			"count":240,
+			"type":"SCALAR"
+		},
+		{
+			"bufferView":11,
+			"componentType":5126,
+			"count":34,
+			"max":[
+				0.19192872941493988,
+				1.7065784931182861,
+				-0.17111526429653168
+			],
+			"min":[
+				-0.2808597683906555,
+				1.323801040649414,
+				-0.6439037322998047
+			],
+			"type":"VEC3"
+		},
+		{
+			"bufferView":12,
+			"componentType":5126,
+			"count":34,
+			"type":"VEC3"
+		},
+		{
+			"bufferView":13,
+			"componentType":5126,
+			"count":34,
+			"type":"VEC2"
+		},
+		{
+			"bufferView":14,
+			"componentType":5123,
+			"count":84,
+			"type":"SCALAR"
+		},
+		{
+			"bufferView":15,
+			"componentType":5126,
+			"count":96,
+			"max":[
+				0.5760693550109863,
+				0.3320592939853668,
+				0.24926888942718506
+			],
+			"min":[
+				-0.6650004386901855,
+				-0.015920281410217285,
+				-1.0642879009246826
+			],
+			"type":"VEC3"
+		},
+		{
+			"bufferView":16,
+			"componentType":5126,
+			"count":96,
+			"type":"VEC3"
+		},
+		{
+			"bufferView":17,
+			"componentType":5126,
+			"count":96,
+			"type":"VEC2"
+		},
+		{
+			"bufferView":18,
+			"componentType":5123,
+			"count":132,
+			"type":"SCALAR"
+		},
+		{
+			"bufferView":19,
+			"componentType":5126,
+			"count":38,
+			"max":[
+				0.3920398950576782,
+				1.4629929065704346,
+				0.008999109268188477
+			],
+			"min":[
+				-0.48097091913223267,
+				0.31466031074523926,
+				-0.8507487177848816
+			],
+			"type":"VEC3"
+		},
+		{
+			"bufferView":20,
+			"componentType":5126,
+			"count":38,
+			"type":"VEC3"
+		},
+		{
+			"bufferView":21,
+			"componentType":5126,
+			"count":38,
+			"type":"VEC2"
+		},
+		{
+			"bufferView":22,
+			"componentType":5123,
+			"count":96,
+			"type":"SCALAR"
+		}
+	],
+	"bufferViews":[
+		{
+			"buffer":0,
+			"byteLength":360,
+			"byteOffset":0,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":360,
+			"byteOffset":360,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":240,
+			"byteOffset":720,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":144,
+			"byteOffset":960,
+			"target":34963
+		},
+		{
+			"buffer":0,
+			"byteLength":360,
+			"byteOffset":1104,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":360,
+			"byteOffset":1464,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":240,
+			"byteOffset":1824,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":732,
+			"byteOffset":2064,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":732,
+			"byteOffset":2796,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":488,
+			"byteOffset":3528,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":480,
+			"byteOffset":4016,
+			"target":34963
+		},
+		{
+			"buffer":0,
+			"byteLength":408,
+			"byteOffset":4496,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":408,
+			"byteOffset":4904,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":272,
+			"byteOffset":5312,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":168,
+			"byteOffset":5584,
+			"target":34963
+		},
+		{
+			"buffer":0,
+			"byteLength":1152,
+			"byteOffset":5752,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":1152,
+			"byteOffset":6904,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":768,
+			"byteOffset":8056,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":264,
+			"byteOffset":8824,
+			"target":34963
+		},
+		{
+			"buffer":0,
+			"byteLength":456,
+			"byteOffset":9088,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":456,
+			"byteOffset":9544,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":304,
+			"byteOffset":10000,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":192,
+			"byteOffset":10304,
+			"target":34963
+		}
+	],
+	"buffers":[
+		{
+			"byteLength":10496,
+			"uri":"gothic_statue.bin"
+		}
+	]
 }
