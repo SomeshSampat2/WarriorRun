@@ -8,152 +8,268 @@
 		{
 			"name":"Scene",
 			"nodes":[
-				0
+				0,
+				1,
+				2
 			]
 		}
 	],
 	"nodes":[
 		{
 			"mesh":0,
-			"name":"concrete_road_barrier"
+			"name":"barrier"
+		},
+		{
+			"mesh":1,
+			"name":"stripe"
+		},
+		{
+			"mesh":2,
+			"name":"stripe.001"
 		}
 	],
 	"materials":[
 		{
 			"doubleSided":true,
-			"name":"concrete_road_barrier",
-			"normalTexture":{
-				"index":0
-			},
+			"name":"M_cb",
 			"pbrMetallicRoughness":{
-				"baseColorTexture":{
-					"index":1
-				},
+				"baseColorFactor":[
+					0.5924380421638489,
+					0.5604991316795349,
+					0.5054324865341187,
+					1
+				],
 				"metallicFactor":0,
-				"metallicRoughnessTexture":{
-					"index":2
-				}
+				"roughnessFactor":0.8500000238418579
+			}
+		},
+		{
+			"doubleSided":true,
+			"name":"M_cbs",
+			"pbrMetallicRoughness":{
+				"baseColorFactor":[
+					0.8751375675201416,
+					0.13902245461940765,
+					0.020951131358742714,
+					1
+				],
+				"metallicFactor":0,
+				"roughnessFactor":0.8500000238418579
 			}
 		}
 	],
 	"meshes":[
 		{
-			"name":"RetopoFlow.006",
+			"name":"barrier",
 			"primitives":[
 				{
 					"attributes":{
 						"POSITION":0,
-						"NORMAL":1,
-						"TEXCOORD_0":2
+						"NORMAL":1
 					},
-					"indices":3,
+					"indices":2,
 					"material":0
 				}
 			]
-		}
-	],
-	"textures":[
-		{
-			"sampler":0,
-			"source":0
 		},
 		{
-			"sampler":0,
-			"source":1
+			"name":"Cube",
+			"primitives":[
+				{
+					"attributes":{
+						"POSITION":3,
+						"NORMAL":4,
+						"TEXCOORD_0":5
+					},
+					"indices":6,
+					"material":1
+				}
+			]
 		},
 		{
-			"sampler":0,
-			"source":2
-		}
-	],
-	"images":[
-		{
-			"mimeType":"image/jpeg",
-			"name":"concrete_road_barrier_nor_gl",
-			"uri":"textures/concrete_road_barrier_nor_gl_2k.jpg"
-		},
-		{
-			"mimeType":"image/jpeg",
-			"name":"concrete_road_barrier_diff",
-			"uri":"textures/concrete_road_barrier_diff_2k.jpg"
-		},
-		{
-			"mimeType":"image/jpeg",
-			"name":"concrete_road_barrier_rough",
-			"uri":"textures/concrete_road_barrier_arm_2k.jpg"
+			"name":"Cube.001",
+			"primitives":[
+				{
+					"attributes":{
+						"POSITION":7,
+						"NORMAL":8,
+						"TEXCOORD_0":9
+					},
+					"indices":10,
+					"material":1
+				}
+			]
 		}
 	],
 	"accessors":[
 		{
 			"bufferView":0,
 			"componentType":5126,
-			"count":9978,
+			"count":180,
 			"max":[
 				0.7707244157791138,
 				0.8224999308586121,
-				0.3439931571483612
+				0.21624505519866943
 			],
 			"min":[
-				-0.774281919002533,
+				-0.7742818593978882,
 				-0.008274680003523827,
-				-0.2947474718093872
+				-0.16699936985969543
 			],
 			"type":"VEC3"
 		},
 		{
 			"bufferView":1,
 			"componentType":5126,
-			"count":9978,
+			"count":180,
 			"type":"VEC3"
 		},
 		{
 			"bufferView":2,
-			"componentType":5126,
-			"count":9978,
-			"type":"VEC2"
+			"componentType":5123,
+			"count":276,
+			"type":"SCALAR"
 		},
 		{
 			"bufferView":3,
+			"componentType":5126,
+			"count":96,
+			"max":[
+				0.6162238121032715,
+				0.5643057227134705,
+				0.14745552837848663
+			],
+			"min":[
+				-0.6197812557220459,
+				0.4160744547843933,
+				0.0997997596859932
+			],
+			"type":"VEC3"
+		},
+		{
+			"bufferView":4,
+			"componentType":5126,
+			"count":96,
+			"type":"VEC3"
+		},
+		{
+			"bufferView":5,
+			"componentType":5126,
+			"count":96,
+			"type":"VEC2"
+		},
+		{
+			"bufferView":6,
 			"componentType":5123,
-			"count":54834,
+			"count":132,
+			"type":"SCALAR"
+		},
+		{
+			"bufferView":7,
+			"componentType":5126,
+			"count":96,
+			"max":[
+				0.6162238121032715,
+				0.5643057227134705,
+				-0.050554074347019196
+			],
+			"min":[
+				-0.6197812557220459,
+				0.4160744547843933,
+				-0.09820982813835144
+			],
+			"type":"VEC3"
+		},
+		{
+			"bufferView":8,
+			"componentType":5126,
+			"count":96,
+			"type":"VEC3"
+		},
+		{
+			"bufferView":9,
+			"componentType":5126,
+			"count":96,
+			"type":"VEC2"
+		},
+		{
+			"bufferView":10,
+			"componentType":5123,
+			"count":132,
 			"type":"SCALAR"
 		}
 	],
 	"bufferViews":[
 		{
 			"buffer":0,
-			"byteLength":119736,
+			"byteLength":2160,
 			"byteOffset":0,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":119736,
-			"byteOffset":119736,
+			"byteLength":2160,
+			"byteOffset":2160,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":79824,
-			"byteOffset":239472,
-			"target":34962
-		},
-		{
-			"buffer":0,
-			"byteLength":109668,
-			"byteOffset":319296,
+			"byteLength":552,
+			"byteOffset":4320,
 			"target":34963
-		}
-	],
-	"samplers":[
+		},
 		{
-			"magFilter":9729,
-			"minFilter":9987
+			"buffer":0,
+			"byteLength":1152,
+			"byteOffset":4872,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":1152,
+			"byteOffset":6024,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":768,
+			"byteOffset":7176,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":264,
+			"byteOffset":7944,
+			"target":34963
+		},
+		{
+			"buffer":0,
+			"byteLength":1152,
+			"byteOffset":8208,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":1152,
+			"byteOffset":9360,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":768,
+			"byteOffset":10512,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":264,
+			"byteOffset":11280,
+			"target":34963
 		}
 	],
 	"buffers":[
 		{
-			"byteLength":428964,
+			"byteLength":11544,
 			"uri":"concrete_road_barrier.bin"
 		}
 	]

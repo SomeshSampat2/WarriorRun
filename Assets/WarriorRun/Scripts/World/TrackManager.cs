@@ -27,17 +27,18 @@ namespace WarriorRun.World
         public GameObject[] powerUpPrefabs;   // magnet / shield / boost pickups
         public GameObject[] decorPrefabs;   // ruins props beyond the walls
         public GameObject[] wallFeaturePrefabs; // banners/torches/crests on the wall face
+        public GameObject[] extraObstaclePrefabs; // shared surprise mix-ins on top of zone pools
 
         [Header("Environment zones")]
         public Zone[] zones;                 // cycled biome tiles; empty = legacy single tile
-        [SerializeField] int tilesPerZone = 5;
+        [SerializeField] int tilesPerZone = 14;
         [SerializeField] float fogLerpSpeed = 0.35f;
         [SerializeField] float farGroundDim = 0.62f; // far slab tinted toward the zone's horizon
 
         [Header("Difficulty")]
         [SerializeField] int safeTiles = 2;
-        [SerializeField] float baseObstacleChance = 0.22f;
-        [SerializeField] float maxObstacleChance = 0.40f;
+        [SerializeField] float baseObstacleChance = 0.18f;
+        [SerializeField] float maxObstacleChance = 0.33f;
         [SerializeField] float coinRowChance = 0.55f;
         [SerializeField] float powerUpChance = 0.07f;
 
@@ -50,6 +51,7 @@ namespace WarriorRun.World
         int runSeed;
         int[] zoneOrder;
         int zoneIdx;
+        int lastBlockedLane = -1;
         Color fogTarget;
         Material farGroundMat;
 
@@ -129,6 +131,7 @@ namespace WarriorRun.World
             Add(highBarrierPrefab, 3);
             Add(wallBlockPrefab, 3);
             AddMany(powerUpPrefabs, 2);
+            AddMany(extraObstaclePrefabs, 3);
             AddMany(decorPrefabs, 4);
             AddMany(wallFeaturePrefabs, 3);
             if (zones != null)
@@ -295,10 +298,22 @@ namespace WarriorRun.World
         void SpawnObstacleRow(Vector3 rowPos, System.Random rng, TrackChunk chunk, float difficulty, Zone zone)
         {
             // block 1-2 lanes, always keep >= 1 free lane
-            int blocked = rng.NextDouble() < 0.35 + difficulty * 0.3 ? 2 : 1;
+            int blocked = rng.NextDouble() < 0.30 + difficulty * 0.25 ? 2 : 1;
 
             var lanes = new List<int> { 0, 1, 2 };
             Shuffle(lanes, rng);
+            if (blocked == 1)
+            {
+                // never wall the same lane twice in a row, and ease the
+                // centre lane off — a streak of middle blocks reads as spam
+                if (lanes[0] == lastBlockedLane ||
+                    (lanes[0] == 1 && rng.NextDouble() < 0.4))
+                {
+                    int j = 1 + rng.Next(2);
+                    (lanes[0], lanes[j]) = (lanes[j], lanes[0]);
+                }
+            }
+            lastBlockedLane = blocked == 1 ? lanes[0] : -1;
 
             for (int i = 0; i < blocked; i++)
             {
@@ -326,8 +341,17 @@ namespace WarriorRun.World
         GameObject PickObstacle(System.Random rng, Zone zone)
         {
             if (zone != null && zone.obstaclePrefabs != null && zone.obstaclePrefabs.Length > 0)
+            {
+                // occasionally pull a wildcard from the shared pool so zones
+                // don't feel locked to the same three blockers
+                if (extraObstaclePrefabs != null && extraObstaclePrefabs.Length > 0
+                    && rng.NextDouble() < 0.22)
+                    return extraObstaclePrefabs[rng.Next(extraObstaclePrefabs.Length)];
                 return zone.obstaclePrefabs[rng.Next(zone.obstaclePrefabs.Length)];
+            }
             double r = rng.NextDouble();
+            if (extraObstaclePrefabs != null && extraObstaclePrefabs.Length > 0 && r < 0.20)
+                return extraObstaclePrefabs[rng.Next(extraObstaclePrefabs.Length)];
             if (spikePrefab != null && r < 0.18) return spikePrefab;
             if (r < 0.45) return lowBarrierPrefab;
             if (r < 0.78) return highBarrierPrefab;

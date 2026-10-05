@@ -8,37 +8,92 @@
 		{
 			"name":"Scene",
 			"nodes":[
-				0
+				0,
+				1,
+				2,
+				3
 			]
 		}
 	],
 	"nodes":[
 		{
 			"mesh":0,
-			"name":"boulder_04"
+			"name":"strata0"
+		},
+		{
+			"mesh":1,
+			"name":"strata1"
+		},
+		{
+			"mesh":2,
+			"name":"strata2"
+		},
+		{
+			"mesh":3,
+			"name":"strata3"
 		}
 	],
 	"materials":[
 		{
 			"doubleSided":true,
-			"name":"boulder_04",
-			"normalTexture":{
-				"index":0
-			},
+			"name":"M_st0",
 			"pbrMetallicRoughness":{
-				"baseColorTexture":{
-					"index":1
-				},
+				"baseColorFactor":[
+					0.5924380421638489,
+					0.2590273320674896,
+					0.10114516317844391,
+					1
+				],
 				"metallicFactor":0,
-				"metallicRoughnessTexture":{
-					"index":2
-				}
+				"roughnessFactor":0.8500000238418579
+			}
+		},
+		{
+			"doubleSided":true,
+			"name":"M_st1",
+			"pbrMetallicRoughness":{
+				"baseColorFactor":[
+					0.39929330348968506,
+					0.14799802005290985,
+					0.05112205073237419,
+					1
+				],
+				"metallicFactor":0,
+				"roughnessFactor":0.8500000238418579
+			}
+		},
+		{
+			"doubleSided":true,
+			"name":"M_st2",
+			"pbrMetallicRoughness":{
+				"baseColorFactor":[
+					0.7518950700759888,
+					0.47044023871421814,
+					0.14497213065624237,
+					1
+				],
+				"metallicFactor":0,
+				"roughnessFactor":0.8500000238418579
+			}
+		},
+		{
+			"doubleSided":true,
+			"name":"M_st3",
+			"pbrMetallicRoughness":{
+				"baseColorFactor":[
+					0.5924380421638489,
+					0.2590273320674896,
+					0.10114516317844391,
+					1
+				],
+				"metallicFactor":0,
+				"roughnessFactor":0.8500000238418579
 			}
 		}
 	],
 	"meshes":[
 		{
-			"name":"realCap_Model_2",
+			"name":"Cube",
 			"primitives":[
 				{
 					"attributes":{
@@ -50,110 +105,253 @@
 					"material":0
 				}
 			]
-		}
-	],
-	"textures":[
-		{
-			"sampler":0,
-			"source":0
 		},
 		{
-			"sampler":0,
-			"source":1
+			"name":"Cube.001",
+			"primitives":[
+				{
+					"attributes":{
+						"POSITION":4,
+						"NORMAL":5,
+						"TEXCOORD_0":6
+					},
+					"indices":3,
+					"material":1
+				}
+			]
 		},
 		{
-			"sampler":0,
-			"source":2
-		}
-	],
-	"images":[
-		{
-			"mimeType":"image/jpeg",
-			"name":"boulder_04_nor_gl",
-			"uri":"textures/namaqualand_boulder_04_nor_gl_2k.jpg"
+			"name":"Cube.002",
+			"primitives":[
+				{
+					"attributes":{
+						"POSITION":7,
+						"NORMAL":8,
+						"TEXCOORD_0":9
+					},
+					"indices":3,
+					"material":2
+				}
+			]
 		},
 		{
-			"mimeType":"image/jpeg",
-			"name":"boulder_04_diff",
-			"uri":"textures/namaqualand_boulder_04_diff_2k.jpg"
-		},
-		{
-			"mimeType":"image/jpeg",
-			"name":"boulder_04_rough",
-			"uri":"textures/namaqualand_boulder_04_arm_2k.jpg"
+			"name":"Cube.003",
+			"primitives":[
+				{
+					"attributes":{
+						"POSITION":10,
+						"NORMAL":11,
+						"TEXCOORD_0":12
+					},
+					"indices":3,
+					"material":3
+				}
+			]
 		}
 	],
 	"accessors":[
 		{
 			"bufferView":0,
 			"componentType":5126,
-			"count":9393,
+			"count":96,
 			"max":[
-				1.1832892894744873,
-				1.8697847127914429,
-				1.4681003093719482
+				1.0474807024002075,
+				0.5160132646560669,
+				0.7751590609550476
 			],
 			"min":[
-				-1.3384374380111694,
-				-0.030245432630181313,
-				-1.0305428504943848
+				-0.842956006526947,
+				-0.03024543821811676,
+				-0.7190431952476501
 			],
 			"type":"VEC3"
 		},
 		{
 			"bufferView":1,
 			"componentType":5126,
-			"count":9393,
+			"count":96,
 			"type":"VEC3"
 		},
 		{
 			"bufferView":2,
 			"componentType":5126,
-			"count":9393,
+			"count":96,
 			"type":"VEC2"
 		},
 		{
 			"bufferView":3,
 			"componentType":5123,
-			"count":53154,
+			"count":132,
 			"type":"SCALAR"
+		},
+		{
+			"bufferView":4,
+			"componentType":5126,
+			"count":96,
+			"max":[
+				0.5379022359848022,
+				0.9910207986831665,
+				1.436617374420166
+			],
+			"min":[
+				-0.8786370754241943,
+				0.44476211071014404,
+				-0.417253315448761
+			],
+			"type":"VEC3"
+		},
+		{
+			"bufferView":5,
+			"componentType":5126,
+			"count":96,
+			"type":"VEC3"
+		},
+		{
+			"bufferView":6,
+			"componentType":5126,
+			"count":96,
+			"type":"VEC2"
+		},
+		{
+			"bufferView":7,
+			"componentType":5126,
+			"count":96,
+			"max":[
+				0.5103766918182373,
+				1.4660283327102661,
+				1.219078779220581
+			],
+			"min":[
+				-1.1120109558105469,
+				0.9197696447372437,
+				-0.5676789879798889
+			],
+			"type":"VEC3"
+		},
+		{
+			"bufferView":8,
+			"componentType":5126,
+			"count":96,
+			"type":"VEC3"
+		},
+		{
+			"bufferView":9,
+			"componentType":5126,
+			"count":96,
+			"type":"VEC2"
+		},
+		{
+			"bufferView":10,
+			"componentType":5126,
+			"count":96,
+			"max":[
+				0.6906436681747437,
+				1.9410358667373657,
+				1.4920260906219482
+			],
+			"min":[
+				-1.2177224159240723,
+				1.3947771787643433,
+				-0.4930065870285034
+			],
+			"type":"VEC3"
+		},
+		{
+			"bufferView":11,
+			"componentType":5126,
+			"count":96,
+			"type":"VEC3"
+		},
+		{
+			"bufferView":12,
+			"componentType":5126,
+			"count":96,
+			"type":"VEC2"
 		}
 	],
 	"bufferViews":[
 		{
 			"buffer":0,
-			"byteLength":112716,
+			"byteLength":1152,
 			"byteOffset":0,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":112716,
-			"byteOffset":112716,
+			"byteLength":1152,
+			"byteOffset":1152,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":75144,
-			"byteOffset":225432,
+			"byteLength":768,
+			"byteOffset":2304,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":106308,
-			"byteOffset":300576,
+			"byteLength":264,
+			"byteOffset":3072,
 			"target":34963
-		}
-	],
-	"samplers":[
+		},
 		{
-			"magFilter":9729,
-			"minFilter":9987
+			"buffer":0,
+			"byteLength":1152,
+			"byteOffset":3336,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":1152,
+			"byteOffset":4488,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":768,
+			"byteOffset":5640,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":1152,
+			"byteOffset":6408,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":1152,
+			"byteOffset":7560,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":768,
+			"byteOffset":8712,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":1152,
+			"byteOffset":9480,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":1152,
+			"byteOffset":10632,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":768,
+			"byteOffset":11784,
+			"target":34962
 		}
 	],
 	"buffers":[
 		{
-			"byteLength":406884,
+			"byteLength":12552,
 			"uri":"namaqualand_boulder_04.bin"
 		}
 	]
