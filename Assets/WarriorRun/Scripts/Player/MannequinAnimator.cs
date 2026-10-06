@@ -76,6 +76,8 @@ namespace WarriorRun.Player
         float leanX;
         float turnYaw, turnRoll;
         float squash = 1f;
+        float flip;                 // remaining degrees of the double-jump tumble
+        const float flipSpeed = 620f;
         bool wasGrounded = true;
 
         // menu showcase cycle
@@ -153,6 +155,19 @@ namespace WarriorRun.Player
             plays[S_Jump].SetTime(0);
             plays[S_Jump].SetPlayState(PlayState.Playing);
             FadeTo(S_Jump, 0.06f);
+        }
+
+        /// <summary>Air hop: replay the jump clip while the body frontflips.</summary>
+        public void OnDoubleJump()
+        {
+            if (dead || starting) return;
+            flip = 360f;
+            squash = 1.14f;
+            airborne = true;
+            landTimer = 0f;
+            plays[S_Jump].SetTime(0);
+            plays[S_Jump].SetPlayState(PlayState.Playing);
+            FadeTo(S_Jump, 0.05f);
         }
 
         public void OnSlide(bool on)
@@ -310,6 +325,15 @@ namespace WarriorRun.Player
             {
                 float w = 1f + (1f - squash) * 0.45f;
                 squashPivot.localScale = new Vector3(w, squash, w);
+
+                // double-jump frontflip — squashPivot only carries scale, so the
+                // tumble rides its rotation without fighting the landing dip
+                if (flip > 0f)
+                {
+                    squashPivot.localRotation = Quaternion.Euler(360f - flip, 0f, 0f);
+                    flip = Mathf.Max(0f, flip - flipSpeed * dt);
+                    if (flip <= 0f) squashPivot.localRotation = Quaternion.identity;
+                }
             }
 
             // run-clip speed follows game speed

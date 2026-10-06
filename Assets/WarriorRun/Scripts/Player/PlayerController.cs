@@ -21,6 +21,8 @@ namespace WarriorRun.Player
 
         [Header("Jump/Slide")]
         [SerializeField] float jumpVelocity = 8.5f;
+        [SerializeField] float airJumpMult = 1.12f; // second hop kicks a bit higher
+        [SerializeField] int maxAirJumps = 1;
         [SerializeField] float gravity = -26f;
         [SerializeField] float slideDuration = 0.8f;
         [SerializeField] float standingHeight = 1.8f;
@@ -58,6 +60,7 @@ namespace WarriorRun.Player
         CharacterController cc;
         RunnerInput input;
         IRunnerAnim animator;
+        RunnerFx fx;
         RunnerCamera cam;
         TrackManager track;
         float verticalVelocity;
@@ -65,6 +68,7 @@ namespace WarriorRun.Player
 
         Vector3 laneAnchor;   // virtual point on the path spine we chase
         float lateral;        // current lateral offset from the spine
+        int airJumps;         // consumed while airborne; refunded on touchdown
         bool turning;
         int turnDir;
         float turnYawTarget;
@@ -76,6 +80,7 @@ namespace WarriorRun.Player
         {
             cc = GetComponent<CharacterController>();
             animator = GetComponentInChildren<IRunnerAnim>();
+            fx = GetComponentInChildren<RunnerFx>();
             input = FindFirstObjectByType<RunnerInput>();
             track = FindFirstObjectByType<TrackManager>();
             laneAnchor = transform.position;
@@ -125,11 +130,21 @@ namespace WarriorRun.Player
         void OnJump()
         {
             if (!CanJumpSlide()) return;
-            EndSlide();
+            var gmj = GameManager.Instance;
             if (cc.isGrounded)
             {
-                verticalVelocity = jumpVelocity;
+                EndSlide();
+                verticalVelocity = jumpVelocity * (gmj != null ? gmj.JumpMult : 1f);
                 animator?.OnJump();
+                AudioManager.Instance?.Play(gmj != null && gmj.SpringActive ? Sfx.Spring : Sfx.Jump);
+            }
+            else if (airJumps < maxAirJumps)
+            {
+                // stunt hop — one per flight, frontflips the rig
+                airJumps++;
+                EndSlide();
+                verticalVelocity = jumpVelocity * airJumpMult * (gmj != null ? gmj.JumpMult : 1f);
+                animator?.OnDoubleJump();
                 AudioManager.Instance?.Play(Sfx.Jump);
             }
         }
@@ -220,7 +235,7 @@ namespace WarriorRun.Player
             }
             else
             {
-                verticalVelocity += gravity * dt;
+                verticalVelocity += gravity * gm.GravityMult * dt;
                 if (cc.isGrounded && verticalVelocity < -2f) verticalVelocity = -2f;
                 yDelta = verticalVelocity * dt;
             }
@@ -230,6 +245,7 @@ namespace WarriorRun.Player
             cc.Move(move);
             transform.rotation = Quaternion.Euler(0f, HeadingYaw, 0f);
             IsGrounded = cc.isGrounded;
+            if (IsGrounded) airJumps = 0;
 
             // ran past a corner into the void
             if (transform.position.y < fallKillY)
@@ -319,7 +335,7 @@ namespace WarriorRun.Player
             if (other.TryGetComponent(out Coin coin))
             {
                 coin.Collect();
-                gm.AddCoin();
+                gm.AddCoin(coin.value);
             }
             else if (other.TryGetComponent(out PowerUp pu))
             {
@@ -331,18 +347,30 @@ namespace WarriorRun.Player
             }
             else if (other.TryGetComponent(out Obstacle ob))
             {
-                if (gm.TryCrash())
+                if (gm.GhostActive)
+                {
+                    // ghost phase — drift through untouched, the blocker survives
+                    fx?.OnPhaseThrough();
+                    AudioManager.Instance?.Play(Sfx.Phase);
+                }
+                else if (gm.TryCrash())
                 {
                     animator?.OnDeath();
                     enabled = false; // stop steering; GameManager drives the death flow
                 }
                 else
                 {
-                    ob.gameObject.SetActive(false); // shield/boost/vehicles smash straight through
+                    ob.gameObject.SetActive(false); // shield/boost/vehicles/giant smash straight through
                     if (gm.VehicleActive)
                     {
                         if (cam == null) cam = FindFirstObjectByType<RunnerCamera>();
                         cam?.Shake(0.45f);
+                    }
+                    else if (gm.GiantActive)
+                    {
+                        if (cam == null) cam = FindFirstObjectByType<RunnerCamera>();
+                        cam?.Shake(0.55f);
+                        AudioManager.Instance?.Play(Sfx.Stomp);
                     }
                 }
             }

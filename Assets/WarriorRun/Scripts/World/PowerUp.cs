@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace WarriorRun.World
 {
-    public enum PowerUpKind { Magnet, Shield, Boost, Car, Plane }
+    public enum PowerUpKind { Magnet, Shield, Boost, Car, Plane, Ghost, Spring, Giant }
 
     /// <summary>Floating powerup pickup — spins and bobs like coins.</summary>
     public class PowerUp : MonoBehaviour

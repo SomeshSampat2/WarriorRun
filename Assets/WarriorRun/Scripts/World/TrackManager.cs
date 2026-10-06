@@ -27,6 +27,7 @@ namespace WarriorRun.World
         public GameObject wallBlockPrefab;
         public GameObject spikePrefab;
         public GameObject coinPrefab;
+        public GameObject gemPrefab;        // rare — worth a stack of coins
         public GameObject turnLeftPrefab;
         public GameObject turnRightPrefab;
         public GameObject[] powerUpPrefabs;   // magnet / shield / boost pickups
@@ -53,6 +54,7 @@ namespace WarriorRun.World
         [SerializeField] float maxObstacleChance = 0.33f;
         [SerializeField] float coinRowChance = 0.55f;
         [SerializeField] float powerUpChance = 0.07f;
+        [SerializeField] float gemChance = 0.05f; // per-coin chance to upgrade to a gem
 
         /// <summary>A corner the runner is approaching — read by PlayerController.</summary>
         public struct TurnPlan
@@ -192,6 +194,7 @@ namespace WarriorRun.World
             Add(turnLeftPrefab, 1);
             Add(turnRightPrefab, 1);
             Add(coinPrefab, 14);
+            Add(gemPrefab, 2);
             Add(spikePrefab, 3);
             Add(lowBarrierPrefab, 3);
             Add(highBarrierPrefab, 3);
@@ -691,7 +694,8 @@ namespace WarriorRun.World
 
         void SpawnCoin(Vector3 pos, TrackChunk chunk)
         {
-            var go = GetFromPool(coinPrefab);
+            // occasionally upgrade the pickup to a gem — same fly-in rules
+            var go = GetFromPool(gemPrefab != null && Random.value < gemChance ? gemPrefab : coinPrefab);
             float y = SurfaceAt(chunk.transform, pos.x, pos.z) + 0.78f; // hover close above the real floor
             go.transform.SetPositionAndRotation(new Vector3(pos.x, y, pos.z), Quaternion.identity);
             go.SetActive(true);

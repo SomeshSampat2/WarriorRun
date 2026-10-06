@@ -31,6 +31,7 @@ namespace WarriorRun.Player
         float rollZ;              // lateral lean on lane switch
         float targetRoll;
         float turnYaw, turnRoll;  // corner body twist + bank
+        float flip;               // remaining degrees of the double-jump tumble
         bool wasGrounded = true;
         bool dead;
         float deadT;
@@ -45,6 +46,7 @@ namespace WarriorRun.Player
 
         public void OnRunStart() => squash = 1.12f;
         public void OnJump() => squash = 1.22f;
+        public void OnDoubleJump() { OnJump(); flip = 360f; }
         public void OnSlide(bool on) { if (on) squash = 0.8f; }
         public void OnLaneSwitch(int dir) => targetRoll = -dir * 9f;
         public void OnLand() => squash = 0.74f;
@@ -129,7 +131,15 @@ namespace WarriorRun.Player
             int tdir = pc != null ? pc.TurnDir : 0;
             turnYaw = Mathf.Lerp(turnYaw, turningNow ? tdir * 24f : 0f, 7f * Time.deltaTime);
             turnRoll = Mathf.Lerp(turnRoll, turningNow ? -tdir * 14f : 0f, 7f * Time.deltaTime);
-            transform.localEulerAngles = new Vector3(leanX, turnYaw, rollZ + turnRoll);
+
+            // double-jump frontflip — pitch runs 0→360 over ~0.6s, seamless
+            float flipPitch = 0f;
+            if (flip > 0f)
+            {
+                flip = Mathf.Max(0f, flip - 620f * Time.deltaTime);
+                flipPitch = flip > 0f ? 360f - flip : 0f;
+            }
+            transform.localEulerAngles = new Vector3(leanX + flipPitch, turnYaw, rollZ + turnRoll);
 
             // head counter-bob
             if (head != null)

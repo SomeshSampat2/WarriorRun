@@ -68,10 +68,11 @@ namespace WarriorRun.EditorTools
         static TMP_FontAsset gameFont, titleFont;
         static Sprite roundRect, circle, coinIcon, chevSpr;
         static Sprite cardSpr, btnSpr, pillSpr, softPuff, scrimSpr, starSpr;
+        static Sprite iconMagnet, iconShield, iconBolt, iconGhost, iconBoot, iconMush, iconCar, iconPlane;
         static readonly Dictionary<string, AnimationClip> clips = new();
         static RuntimeAnimatorController runnerCtrl;
         static VolumeProfile volProfile;
-        static GameObject coinBurstPrefab;
+        static GameObject coinBurstPrefab, gemBurstPrefab;
         static Material dustMat;
         const string ArtDir = Root + "/Art";
         const string CharGlb = ArtDir + "/CharNew/Knight.glb";
@@ -127,6 +128,7 @@ namespace WarriorRun.EditorTools
                 CreateMaterials();
                 GenerateSprites();
                 GenerateSpritesV2();
+                GeneratePowerIcons();
                 GenerateFont();
                 GenerateTitleFont();
                 GenerateAudio();
@@ -176,14 +178,39 @@ namespace WarriorRun.EditorTools
 
         // ================= meshes =================
 
-        static Mesh coneMesh, rockMesh, pyramidMesh;
+        static Mesh coneMesh, rockMesh, pyramidMesh, ringMesh;
 
         static void CreateMeshes()
         {
             coneMesh = SaveMesh(MakeCone(5, 1f, 1f), "Cone5", Root + "/Meshes/Cone5.asset");
             rockMesh = SaveMesh(MakeRock(1234), "Rock", Root + "/Meshes/Rock.asset");
             pyramidMesh = SaveMesh(MakeCone(4, 1f, 1f), "Pyramid4", Root + "/Meshes/Pyramid4.asset");
+            ringMesh = SaveMesh(MakeRing(0.55f, 0.8f, 48), "AuraRing", Root + "/Meshes/AuraRing.asset");
             Log("Meshes created");
+        }
+
+        /// <summary>Flat XZ annulus facing +Y — the magnet aura's ground ring.</summary>
+        static Mesh MakeRing(float inner, float outer, int segs)
+        {
+            var mesh = new Mesh();
+            var verts = new List<Vector3>();
+            var tris = new List<int>();
+            for (int i = 0; i <= segs; i++)
+            {
+                float a = i / (float)segs * Mathf.PI * 2f;
+                var d = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                verts.Add(d * inner);
+                verts.Add(d * outer);
+                if (i >= segs) continue;
+                int b = i * 2;
+                tris.Add(b); tris.Add(b + 2); tris.Add(b + 1);
+                tris.Add(b + 1); tris.Add(b + 2); tris.Add(b + 3);
+            }
+            mesh.SetVertices(verts);
+            mesh.SetTriangles(tris, 0);
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            return mesh;
         }
 
         /// <summary>Write the mesh to an asset (in place, preserving GUID) and return the asset reference.</summary>
@@ -320,6 +347,40 @@ namespace WarriorRun.EditorTools
             return m;
         }
 
+        /// <summary>Alpha-blend transparent setup for URP/Lit FX materials.</summary>
+        static Material MakeTransparent(Material m)
+        {
+            m.SetFloat("_Surface", 1f);
+            m.SetOverrideTag("RenderType", "Transparent");
+            m.renderQueue = (int)RenderQueue.Transparent;
+            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            m.EnableKeyword("_ALPHABLEND_ON");
+            EditorUtility.SetDirty(m);
+            return m;
+        }
+
+        /// <summary>Soft-puff Particles/Unlit material — FX workhorse (meshes + particles alike).</summary>
+        static Material PMat(string name, Color c, bool additive)
+        {
+            string path = Root + "/Materials/" + name + ".mat";
+            var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (m == null)
+            {
+                m = new Material(Shader.Find("Universal Render Pipeline/Particles/Unlit")) { name = name };
+                AssetDatabase.CreateAsset(m, path);
+            }
+            m.SetColor("_BaseColor", c);
+            m.SetFloat("_Surface", 1f);
+            m.SetFloat("_Blend", additive ? 2f : 0f);
+            m.SetOverrideTag("RenderType", "Transparent");
+            m.renderQueue = (int)RenderQueue.Transparent;
+            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            m.EnableKeyword(additive ? "_ADDITIVE" : "_ALPHABLEND_ON");
+            EditorUtility.SetDirty(m);
+            mats[name] = m;
+            return m;
+        }
+
         static void CreateMaterials()
         {
             Mat("Track", ColTrack, 0.18f);
@@ -418,6 +479,16 @@ namespace WarriorRun.EditorTools
             Mat("PupilDark", Hex("#12161C"), 0.45f);
             // far slab — retinted toward the active zone's horizon at runtime
             Mat("FarGround", Hex("#988B77"), 0.08f);
+
+            // runner FX — translucent domes and the ghosted-knight body
+            var gp = MakeTransparent(Mat("GhostPhase", new Color(0.45f, 0.92f, 1f, 0.30f), 0.5f));
+            gp.EnableKeyword("_EMISSION");
+            gp.SetColor("_EmissionColor", Hex("#59D9FF") * 0.7f);
+            EditorUtility.SetDirty(gp);
+            var bub = MakeTransparent(Mat("BubbleShield", new Color(0.5f, 0.78f, 1f, 0.20f), 0.85f));
+            bub.EnableKeyword("_EMISSION");
+            bub.SetColor("_EmissionColor", Hex("#7CC7FF") * 0.5f);
+            EditorUtility.SetDirty(bub);
 
             // lagoon water-slide zone
             Mat("SlideFloor", Hex("#CFEFF2"), 0.55f);
@@ -659,6 +730,11 @@ namespace WarriorRun.EditorTools
             WriteWav(dir + "/sfx_shieldbreak.wav", SynthShieldBreak());
             WriteWav(dir + "/sfx_car.wav", SynthCar());
             WriteWav(dir + "/sfx_plane.wav", SynthPlane());
+            WriteWav(dir + "/sfx_gem.wav", SynthGem());
+            WriteWav(dir + "/sfx_phase.wav", SynthPhase());
+            WriteWav(dir + "/sfx_stomp.wav", SynthStomp());
+            WriteWav(dir + "/sfx_spring.wav", SynthSpring());
+            WriteWav(dir + "/sfx_ghost.wav", SynthGhost());
             WriteWav(dir + "/sfx_carloop.wav", LoopEngine(82f, 8f, 0.30f, 0.05f, 31));
             WriteWav(dir + "/sfx_planeloop.wav", LoopPlane());
             // real track wins: only synthesize the loop when no mp3 is present
@@ -753,6 +829,11 @@ namespace WarriorRun.EditorTools
         static float[] SynthStart() => Mix(Sine(660, 660, 0.1f, 0.4f), Delay(Sine(880, 880, 0.1f, 0.4f), 0.1f), Delay(Sine(1320, 1320, 0.16f, 0.45f), 0.2f));
         static float[] SynthPowerUp() => Mix(Sine(523, 523, 0.08f, 0.4f), Delay(Sine(659, 659, 0.08f, 0.4f), 0.08f), Delay(Sine(784, 784, 0.08f, 0.4f), 0.16f), Delay(Sine(1046, 1568, 0.22f, 0.45f), 0.24f));
         static float[] SynthShieldBreak() => Mix(Noise(0.3f, 0.45f, 0.5f, 0.1f), Sine(900, 300, 0.25f, 0.35f));
+        static float[] SynthGem() => Mix(Sine(2093, 2093, 0.07f, 0.45f), Delay(Sine(2637, 2637, 0.09f, 0.45f), 0.06f), Delay(Sine(3136, 3136, 0.15f, 0.35f), 0.13f));
+        static float[] SynthPhase() => Mix(Noise(0.32f, 0.30f, 0.08f, 0.55f), Delay(Sine(660, 220, 0.28f, 0.20f), 0.02f));
+        static float[] SynthStomp() => Mix(Sine(95, 38, 0.20f, 0.65f), Noise(0.10f, 0.35f, 0.30f, 0.02f));
+        static float[] SynthSpring() => Mix(Sine(280, 720, 0.07f, 0.45f), Delay(Sine(720, 340, 0.07f, 0.40f), 0.07f), Delay(Sine(340, 640, 0.10f, 0.35f), 0.14f));
+        static float[] SynthGhost() => Mix(Sine(520, 170, 0.45f, 0.30f), Delay(Sine(392, 130, 0.5f, 0.22f), 0.09f), Delay(Noise(0.4f, 0.12f, 0.5f, 0.12f), 0.05f));
         static float[] SynthCar() => Mix(
             Sine(95, 430, 0.62f, 0.45f),                       // rev climbing
             Sine(190, 860, 0.58f, 0.20f),                      // octave harmonic
@@ -1076,6 +1157,10 @@ namespace WarriorRun.EditorTools
             prefabs["PU_Boost"] = MakePowerUpBoost();
             prefabs["PU_Car"] = MakePowerUpCar();
             prefabs["PU_Plane"] = MakePowerUpPlane();
+            prefabs["PU_Ghost"] = MakePowerUpGhost();
+            prefabs["PU_Spring"] = MakePowerUpSpring();
+            prefabs["PU_Giant"] = MakePowerUpGiant();
+            prefabs["Gem"] = MakeGem();
             // lagoon water-slide zone — flume tile, water obstacles, palm decor
             prefabs["Tile_Water"] = MakeWaterTile();
             prefabs["Tile_TurnR"] = MakeTurnTile(1, "Tile_TurnR");
@@ -2230,6 +2315,60 @@ namespace WarriorRun.EditorTools
                 root.AddComponent<VehicleTint>();
         }
 
+        /// <summary>Blender-built pickup model from Art/PowerUps — the GLBs made for this pack.</summary>
+        static GameObject PUModel(string file, Transform parent)
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<GameObject>(ArtDir + "/PowerUps/" + file);
+            if (asset == null) { Log("WARN: Art/PowerUps/" + file + " missing"); return null; }
+            var m = (GameObject)PrefabUtility.InstantiatePrefab(asset);
+            m.transform.SetParent(parent, false);
+            m.transform.localPosition = Vector3.zero;
+            StripColliders(m);
+            return m;
+        }
+
+        static GameObject MakePowerUpGhost() // pale wisp — phase straight through blockers
+        {
+            var root = new GameObject("PU_Ghost");
+            var m = PUModel("Ghost.glb", root.transform);
+            if (m != null) { FitModel(m, targetY: 0.9f); m.transform.position -= ComputeLocalBounds(m).center; }
+            FinishPowerUp(root, PowerUpKind.Ghost);
+            return SavePrefab(root, "PU_Ghost");
+        }
+
+        static GameObject MakePowerUpSpring() // orange boot on a steel coil — mega hops
+        {
+            var root = new GameObject("PU_Spring");
+            var m = PUModel("SpringBoot.glb", root.transform);
+            if (m != null) { FitModel(m, targetY: 0.8f); m.transform.position -= ComputeLocalBounds(m).center; }
+            FinishPowerUp(root, PowerUpKind.Spring);
+            return SavePrefab(root, "PU_Spring");
+        }
+
+        static GameObject MakePowerUpGiant() // red-cap mushroom — grow huge, smash all
+        {
+            var root = new GameObject("PU_Giant");
+            var m = PUModel("Mushroom.glb", root.transform);
+            if (m != null) { FitModel(m, targetY: 0.85f); m.transform.position -= ComputeLocalBounds(m).center; }
+            FinishPowerUp(root, PowerUpKind.Giant);
+            return SavePrefab(root, "PU_Giant");
+        }
+
+        static GameObject MakeGem() // rare emerald — worth a stack of coins
+        {
+            var root = new GameObject("Gem");
+            var m = PUModel("Gem.glb", root.transform);
+            if (m != null) { FitModel(m, targetY: 0.62f); m.transform.position -= ComputeLocalBounds(m).center; }
+            var col = root.AddComponent<SphereCollider>();
+            col.isTrigger = true;
+            col.radius = 0.55f;
+            var coin = root.AddComponent<Coin>();
+            coin.value = 10;
+            coin.spinMul = 1.7f;
+            coin.burstPrefab = gemBurstPrefab;
+            return SavePrefab(root, "Gem");
+        }
+
         // ---------- special vehicles ----------
 
         /// <summary>
@@ -3201,9 +3340,11 @@ namespace WarriorRun.EditorTools
             tm.wallBlockPrefab = prefabs["Wall"];
             tm.spikePrefab = prefabs["Spike"];
             tm.coinPrefab = prefabs["Coin"];
+            tm.gemPrefab = prefabs["Gem"];
             tm.turnLeftPrefab = prefabs["Tile_TurnL"];
             tm.turnRightPrefab = prefabs["Tile_TurnR"];
-            tm.powerUpPrefabs = new[] { prefabs["PU_Magnet"], prefabs["PU_Shield"], prefabs["PU_Boost"], prefabs["PU_Car"], prefabs["PU_Plane"] };
+            tm.powerUpPrefabs = new[] { prefabs["PU_Magnet"], prefabs["PU_Shield"], prefabs["PU_Boost"],
+                prefabs["PU_Ghost"], prefabs["PU_Spring"], prefabs["PU_Giant"], prefabs["PU_Car"], prefabs["PU_Plane"] };
             tm.decorPrefabs = new[] { prefabs["D_Pillar"], prefabs["D_Pillar2"], prefabs["D_Column"], prefabs["D_Rubble"], prefabs["D_Barrel"], prefabs["D_Keg"], prefabs["D_Chest"] };
             tm.wallFeaturePrefabs = new[] { prefabs["WF_Torch"], prefabs["WF_Banner"], prefabs["WF_BannerBig"], prefabs["WF_Crest"] };
             tm.zones = new[]
@@ -3548,6 +3689,59 @@ namespace WarriorRun.EditorTools
             pbrt.anchoredPosition = new Vector2(-30, -30);
             ui.pauseButton = pauseBtn.gameObject;
 
+            // power-up chips — stacked under the coin chip; PowerUpHud polls
+            // GameManager and strobes the chip while a timer runs out
+            var puh = root.gameObject.AddComponent<PowerUpHud>();
+            var puEntries = new List<PowerUpHud.Entry>();
+            var puDefs = new (PowerUpKind kind, Sprite spr, Color col)[]
+            {
+                (PowerUpKind.Magnet, iconMagnet, Hex("#FF5A4E")),
+                (PowerUpKind.Shield, iconShield, Hex("#FFC94E")),
+                (PowerUpKind.Boost,  iconBolt,   Hex("#4ED8FF")),
+                (PowerUpKind.Ghost,  iconGhost,  Hex("#9FE8FF")),
+                (PowerUpKind.Spring, iconBoot,   Hex("#7CFF6A")),
+                (PowerUpKind.Giant,  iconMush,   Hex("#FF6A5E")),
+                (PowerUpKind.Car,    iconCar,    Hex("#FFB43A")),
+                (PowerUpKind.Plane,  iconPlane,  Hex("#B4E3FF")),
+            };
+            for (int i = 0; i < puDefs.Length; i++)
+            {
+                var (kind, spr, col) = puDefs[i];
+                var puChip = new GameObject("PU_" + kind, typeof(RectTransform));
+                RT(puChip, hud.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
+                    new Vector2(28f, -126f - i * 74f), new Vector2(66f, 66f));
+                puChip.AddComponent<CanvasGroup>();
+                var pbg = puChip.AddComponent<Image>();
+                pbg.sprite = roundRect;
+                pbg.color = new Color(ColUIPanel.r, ColUIPanel.g, ColUIPanel.b, 0.72f);
+
+                var iconGo = new GameObject("Icon", typeof(RectTransform));
+                RT(iconGo, puChip.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                    Vector2.zero, new Vector2(46f, 46f));
+                var picon = iconGo.AddComponent<Image>();
+                picon.sprite = spr;
+                picon.color = col;
+
+                var fillGo = new GameObject("Fill", typeof(RectTransform));
+                RT(fillGo, puChip.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                    Vector2.zero, new Vector2(62f, 62f));
+                var pfill = fillGo.AddComponent<Image>();
+                pfill.sprite = circle;
+                pfill.type = Image.Type.Filled;
+                pfill.fillMethod = Image.FillMethod.Radial360;
+                pfill.fillOrigin = (int)Image.Origin360.Top;
+                pfill.fillClockwise = false; // drains counter-clockwise like a countdown
+                pfill.color = new Color(0.05f, 0.08f, 0.11f, 0.62f);
+
+                puChip.SetActive(false);
+                puEntries.Add(new PowerUpHud.Entry
+                {
+                    kind = kind, root = puChip, fill = pfill,
+                    cg = puChip.GetComponent<CanvasGroup>(),
+                });
+            }
+            puh.entries = puEntries.ToArray();
+
             // ---------- READY ----------
             var ready = Panel(root.transform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero,
                 new Color(0.05f, 0.09f, 0.12f, 0.25f), "ReadyPanel").gameObject;
@@ -3707,6 +3901,92 @@ namespace WarriorRun.EditorTools
 
         static Sprite ScrimSprite() => scrimSpr;
 
+        /// <summary>Chunky white glyphs for the HUD power-up chips — tinted by Image.color.</summary>
+        static void GeneratePowerIcons()
+        {
+            // horseshoe magnet — prongs up
+            WriteSprite(Root + "/Sprites/IconMagnet.png", 64, 64, (x, y, w, h) =>
+            {
+                float dx = Mathf.Abs(x - 31.5f);
+                bool prong = dx > 8f && dx < 19f && y > 30f;
+                float d = Mathf.Sqrt(dx * dx + (y - 30f) * (y - 30f));
+                bool arch = d > 8f && d < 19f && y <= 30f;
+                return (prong || arch) ? new Color32(255, 255, 255, 255) : new Color32(255, 255, 255, 0);
+            }, out iconMagnet);
+
+            // shield — dome over a tapered point
+            WriteSprite(Root + "/Sprites/IconShield.png", 64, 64, (x, y, w, h) =>
+            {
+                float nx = Mathf.Abs(x - 31.5f), ny = y - 40f;
+                bool dome = nx * nx + ny * ny < 19f * 19f && y >= 32;
+                bool tail = y < 40 && nx < Mathf.Lerp(0f, 18f, Mathf.Clamp01((y - 12f) / 28f));
+                return (dome || tail) ? new Color32(255, 255, 255, 255) : new Color32(255, 255, 255, 0);
+            }, out iconShield);
+
+            // lightning bolt
+            WriteSprite(Root + "/Sprites/IconBolt.png", 64, 64, (x, y, w, h) =>
+            {
+                float[] xs = { 37f, 22f, 31f, 27f, 42f, 33f };
+                float[] ys = { 54f, 30f, 30f, 10f, 36f, 36f };
+                bool inside = false;
+                for (int i = 0, j = xs.Length - 1; i < xs.Length; j = i++)
+                    if ((ys[i] > y) != (ys[j] > y) && x < (xs[j] - xs[i]) * (y - ys[i]) / (ys[j] - ys[i]) + xs[i])
+                        inside = !inside;
+                return inside ? new Color32(255, 255, 255, 255) : new Color32(255, 255, 255, 0);
+            }, out iconBolt);
+
+            // ghost — dome with a wavy hem
+            WriteSprite(Root + "/Sprites/IconGhost.png", 64, 64, (x, y, w, h) =>
+            {
+                float nx = x - 31.5f, ny = y - 36f;
+                bool dome = nx * nx + ny * ny < 18f * 18f && y >= 30;
+                bool skirt = y >= 14 && y <= 31 && Mathf.Abs(nx) < 18
+                             && y > 15 + Mathf.Abs(Mathf.Sin((x - 8f) * 0.55f)) * 7f;
+                return (dome || skirt) ? new Color32(255, 255, 255, 255) : new Color32(255, 255, 255, 0);
+            }, out iconGhost);
+
+            // boot — chunky L
+            WriteSprite(Root + "/Sprites/IconBoot.png", 64, 64, (x, y, w, h) =>
+            {
+                bool shaft = x >= 20 && x <= 34 && y >= 26 && y <= 54;
+                bool foot = x >= 20 && x <= 50 && y >= 14 && y <= 28;
+                return (shaft || foot) ? new Color32(255, 255, 255, 255) : new Color32(255, 255, 255, 0);
+            }, out iconBoot);
+
+            // mushroom — cap over stem
+            WriteSprite(Root + "/Sprites/IconMush.png", 64, 64, (x, y, w, h) =>
+            {
+                float ex = (x - 31.5f) / 21f, ey = (y - 38f) / 13f;
+                bool cap = ex * ex + ey * ey < 1f && y >= 32;
+                bool stem = Mathf.Abs(x - 31.5f) < 7f && y >= 14 && y < 34;
+                return (cap || stem) ? new Color32(255, 255, 255, 255) : new Color32(255, 255, 255, 0);
+            }, out iconMush);
+
+            // car — body, cabin, two wheels
+            WriteSprite(Root + "/Sprites/IconCar.png", 64, 64, (x, y, w, h) =>
+            {
+                bool body = x >= 10 && x <= 54 && y >= 22 && y <= 34;
+                bool cabin = x >= 20 && x <= 44 && y > 34 && y <= 42;
+                float d1 = Mathf.Sqrt((x - 22f) * (x - 22f) + (y - 20f) * (y - 20f));
+                float d2 = Mathf.Sqrt((x - 42f) * (x - 42f) + (y - 20f) * (y - 20f));
+                return (body || cabin || d1 < 6f || d2 < 6f)
+                    ? new Color32(255, 255, 255, 255) : new Color32(255, 255, 255, 0);
+            }, out iconCar);
+
+            // plane — top-down fuselage + wings + tail
+            WriteSprite(Root + "/Sprites/IconPlane.png", 64, 64, (x, y, w, h) =>
+            {
+                float fx = Mathf.Abs(x - 31.5f);
+                bool fuse = fx < 5f && y >= 10 && y <= 52;
+                bool nose = (x - 31.5f) * (x - 31.5f) + (y - 50f) * (y - 50f) < 30f;
+                bool wing = y >= 30 && y <= 37 && fx < 22f;
+                bool tail = y >= 14 && y <= 18 && fx < 13f;
+                return (fuse || nose || wing || tail)
+                    ? new Color32(255, 255, 255, 255) : new Color32(255, 255, 255, 0);
+            }, out iconPlane);
+            Log("Power-up icons written");
+        }
+
         // ================= visual upgrade: character =================
 
         static AnimationClip Extract(string glb, string clip, string saveAs, bool loop)
@@ -3789,6 +4069,11 @@ namespace WarriorRun.EditorTools
             dustMat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
             dustMat.EnableKeyword("_ALPHABLEND_ON");
             EditorUtility.SetDirty(dustMat);
+
+            // flat-color particle mats for mesh FX — trails, silhouettes, rings
+            PMat("TrailWhite", new Color(0.92f, 0.96f, 1f, 0.65f), additive: false);
+            PMat("GhostAfter", new Color(0.40f, 0.85f, 1f, 0.55f), additive: true);
+            PMat("AuraMagnet", new Color(1f, 0.34f, 0.38f, 0.60f), additive: true);
             Log("Character materials ready");
         }
 
@@ -3858,6 +4143,215 @@ namespace WarriorRun.EditorTools
             return ps;
         }
 
+        // ---------- runner FX rig (RunnerFx targets) ----------
+
+        static TrailRenderer SetupTrail(Transform parent, float x)
+        {
+            var go = new GameObject("AirTrail");
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = new Vector3(x, 0.10f, -0.06f);
+            var tr = go.AddComponent<TrailRenderer>();
+            tr.time = 0.38f;
+            tr.startWidth = 0.11f;
+            tr.endWidth = 0.015f;
+            tr.minVertexDistance = 0.05f;
+            tr.emitting = false; // RunnerFx opens the tap only while airborne
+            var g = new Gradient();
+            g.SetKeys(
+                new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                new[] { new GradientAlphaKey(0.85f, 0f), new GradientAlphaKey(0f, 1f) });
+            tr.colorGradient = g;
+            tr.material = mats["TrailWhite"];
+            tr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            tr.receiveShadows = false;
+            tr.generateLightingData = false;
+            return tr;
+        }
+
+        static ParticleSystem SetupFlames(Transform parent) // orange fire licking off the heels
+        {
+            var go = new GameObject("BoostFlames");
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = new Vector3(0f, 0.15f, -0.28f);
+            var ps = go.AddComponent<ParticleSystem>();
+            var main = ps.main;
+            main.playOnAwake = false;
+            main.loop = true;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.25f, 0.45f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(0.9f, 2.0f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.09f, 0.24f);
+            main.startColor = new ParticleSystem.MinMaxGradient(
+                new Color(1.7f, 1.1f, 0.30f, 0.85f), new Color(1.9f, 0.55f, 0.12f, 0.85f));
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.maxParticles = 90;
+            var em = ps.emission;
+            em.rateOverTime = 0f;
+            var sh = ps.shape;
+            sh.shapeType = ParticleSystemShapeType.Sphere;
+            sh.radius = 0.15f;
+            var vel = ps.velocityOverLifetime;
+            vel.enabled = true;
+            vel.space = ParticleSystemSimulationSpace.World;
+            vel.y = new ParticleSystem.MinMaxCurve(2.4f);
+            vel.z = new ParticleSystem.MinMaxCurve(-7f);
+            var col = ps.colorOverLifetime;
+            col.enabled = true;
+            var g = new Gradient();
+            g.SetKeys(
+                new[] { new GradientColorKey(new Color(1.7f, 1.3f, 0.4f), 0f), new GradientColorKey(new Color(1.4f, 0.4f, 0.08f), 1f) },
+                new[] { new GradientAlphaKey(0.9f, 0f), new GradientAlphaKey(0f, 1f) });
+            col.color = g;
+            var rd = ps.GetComponent<ParticleSystemRenderer>();
+            rd.material = dustMat;
+            rd.renderMode = ParticleSystemRenderMode.Billboard;
+            rd.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            return ps;
+        }
+
+        static ParticleSystem SetupSwirl(Transform parent) // green sparks orbiting the boots
+        {
+            var go = new GameObject("SpringSwirl");
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = new Vector3(0f, 0.25f, 0f);
+            var ps = go.AddComponent<ParticleSystem>();
+            var main = ps.main;
+            main.playOnAwake = false;
+            main.loop = true;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.6f, 1.0f);
+            main.startSpeed = 0.15f;
+            main.startSize = new ParticleSystem.MinMaxCurve(0.05f, 0.12f);
+            main.startColor = new ParticleSystem.MinMaxGradient(
+                new Color(0.55f, 1.7f, 0.6f, 0.85f), new Color(0.8f, 1.9f, 0.5f, 0.85f));
+            main.simulationSpace = ParticleSystemSimulationSpace.Local; // the aura rides the runner
+            main.maxParticles = 60;
+            var em = ps.emission;
+            em.rateOverTime = 0f;
+            var sh = ps.shape;
+            sh.shapeType = ParticleSystemShapeType.Circle;
+            sh.radius = 0.45f;
+            sh.rotation = new Vector3(90f, 0f, 0f); // circle lies flat
+            var vel = ps.velocityOverLifetime;
+            vel.enabled = true;
+            vel.space = ParticleSystemSimulationSpace.Local;
+            vel.orbitalY = new ParticleSystem.MinMaxCurve(2.6f);
+            vel.y = new ParticleSystem.MinMaxCurve(0.9f);
+            var col = ps.colorOverLifetime;
+            col.enabled = true;
+            var g = new Gradient();
+            g.SetKeys(
+                new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(0.9f, 0.25f), new GradientAlphaKey(0f, 1f) });
+            col.color = g;
+            var rd = ps.GetComponent<ParticleSystemRenderer>();
+            rd.material = dustMat;
+            rd.renderMode = ParticleSystemRenderMode.Billboard;
+            rd.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            return ps;
+        }
+
+        static Renderer SetupBubble(Transform parent) // translucent dome while a shield is held
+        {
+            var bub = Prim(PrimitiveType.Sphere, "ShieldBubble", mats["BubbleShield"], parent,
+                new Vector3(0f, 1.0f, 0f), new Vector3(2.05f, 2.2f, 2.05f));
+            bub.SetActive(false);
+            return bub.GetComponent<MeshRenderer>();
+        }
+
+        static ParticleSystem SetupShards(Transform parent) // ice shards on shield break
+        {
+            var go = new GameObject("ShieldShards");
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = new Vector3(0f, 0.95f, 0f);
+            var ps = go.AddComponent<ParticleSystem>();
+            var main = ps.main;
+            main.playOnAwake = false;
+            main.loop = false;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.4f, 0.7f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(2.2f, 4.2f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.05f, 0.13f);
+            main.startColor = new Color(0.6f, 1.3f, 1.9f, 0.95f);
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.gravityModifier = 0.5f;
+            main.maxParticles = 40;
+            var em = ps.emission;
+            em.rateOverTime = 0f;
+            em.SetBursts(new[] { new ParticleSystem.Burst(0f, 22) });
+            var sh = ps.shape;
+            sh.shapeType = ParticleSystemShapeType.Sphere;
+            sh.radius = 0.55f;
+            var col = ps.colorOverLifetime;
+            col.enabled = true;
+            var g = new Gradient();
+            g.SetKeys(
+                new[] { new GradientColorKey(new Color(0.7f, 1.4f, 2f), 0f), new GradientColorKey(new Color(0.3f, 0.8f, 1.4f), 1f) },
+                new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0f, 1f) });
+            col.color = g;
+            var rd = ps.GetComponent<ParticleSystemRenderer>();
+            rd.material = dustMat;
+            rd.renderMode = ParticleSystemRenderMode.Billboard;
+            rd.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            return ps;
+        }
+
+        static Renderer SetupRing(Transform parent) // spinning pink ground ring while magnetised
+        {
+            var ring = MeshGO(ringMesh, "MagnetRing", mats["AuraMagnet"], parent,
+                new Vector3(0f, 0.09f, 0f), Vector3.one * 2.4f);
+            ring.SetActive(false);
+            return ring.GetComponent<MeshRenderer>();
+        }
+
+        static Renderer SetupRingTilt(Transform parent) // steep gyro hoop sweeping the waist
+        {
+            var ring = MeshGO(ringMesh, "MagnetRingTilt", mats["AuraMagnet"], parent,
+                new Vector3(0f, 0.85f, 0f), Vector3.one * 1.9f);
+            ring.transform.localEulerAngles = new Vector3(66f, 0f, 24f);
+            ring.SetActive(false);
+            return ring.GetComponent<MeshRenderer>();
+        }
+
+        static ParticleSystem SetupMagnetSwirl(Transform parent) // sparks pulled INTO the runner
+        {
+            var go = new GameObject("MagnetSwirl");
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = new Vector3(0f, 0.35f, 0f);
+            var ps = go.AddComponent<ParticleSystem>();
+            var main = ps.main;
+            main.playOnAwake = false;
+            main.loop = true;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.7f, 1.1f);
+            main.startSpeed = 0.1f;
+            main.startSize = new ParticleSystem.MinMaxCurve(0.05f, 0.11f);
+            main.startColor = new ParticleSystem.MinMaxGradient(
+                new Color(1.9f, 0.5f, 0.6f, 0.9f), new Color(1.6f, 0.35f, 0.9f, 0.9f)); // hot pink → magenta
+            main.simulationSpace = ParticleSystemSimulationSpace.Local; // rides the runner
+            main.maxParticles = 70;
+            var em = ps.emission;
+            em.rateOverTime = 0f;
+            var sh = ps.shape;
+            sh.shapeType = ParticleSystemShapeType.Circle;
+            sh.radius = 0.95f;
+            sh.rotation = new Vector3(90f, 0f, 0f); // circle lies flat
+            var vel = ps.velocityOverLifetime;
+            vel.enabled = true;
+            vel.space = ParticleSystemSimulationSpace.Local;
+            vel.orbitalY = new ParticleSystem.MinMaxCurve(3.4f);
+            vel.radial = new ParticleSystem.MinMaxCurve(-0.85f); // spiral inward — sells "attraction"
+            vel.y = new ParticleSystem.MinMaxCurve(1.1f);        // and climb
+            var col = ps.colorOverLifetime;
+            col.enabled = true;
+            var g = new Gradient();
+            g.SetKeys(
+                new[] { new GradientColorKey(new Color(1.9f, 0.6f, 0.65f), 0f), new GradientColorKey(new Color(1.5f, 0.3f, 0.8f), 1f) },
+                new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.2f), new GradientAlphaKey(0.7f, 0.8f), new GradientAlphaKey(0f, 1f) });
+            col.color = g;
+            var rd = ps.GetComponent<ParticleSystemRenderer>();
+            rd.material = dustMat;
+            rd.renderMode = ParticleSystemRenderMode.Billboard;
+            rd.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            return ps;
+        }
+
         static void CreateFx()
         {
             // coin pickup burst
@@ -3899,6 +4393,40 @@ namespace WarriorRun.EditorTools
             string path = Root + "/Prefabs/CoinBurst.prefab";
             coinBurstPrefab = PrefabUtility.SaveAsPrefabAsset(go, path);
             UnityEngine.Object.DestroyImmediate(go);
+
+            // gem pickup burst — same shape, emerald sparks
+            var gg = new GameObject("GemBurst");
+            var gps = gg.AddComponent<ParticleSystem>();
+            var gmain = gps.main;
+            gmain.playOnAwake = true;
+            gmain.loop = false;
+            gmain.startLifetime = new ParticleSystem.MinMaxCurve(0.3f, 0.55f);
+            gmain.startSpeed = new ParticleSystem.MinMaxCurve(1.8f, 3.6f);
+            gmain.startSize = new ParticleSystem.MinMaxCurve(0.06f, 0.16f);
+            gmain.startColor = new Color(0.45f, 1.9f, 0.95f); // HDR emerald for bloom
+            gmain.simulationSpace = ParticleSystemSimulationSpace.World;
+            gmain.gravityModifier = 0.9f;
+            gmain.stopAction = ParticleSystemStopAction.Destroy;
+            gmain.maxParticles = 28;
+            var gem2 = gps.emission;
+            gem2.rateOverTime = 0f;
+            gem2.SetBursts(new[] { new ParticleSystem.Burst(0f, 18) });
+            var gsh = gps.shape;
+            gsh.shapeType = ParticleSystemShapeType.Sphere;
+            gsh.radius = 0.12f;
+            var gcol = gps.colorOverLifetime;
+            gcol.enabled = true;
+            var gg2 = new Gradient();
+            gg2.SetKeys(
+                new[] { new GradientColorKey(new Color(0.6f, 1.8f, 0.9f), 0f), new GradientColorKey(new Color(0.25f, 1.2f, 0.6f), 1f) },
+                new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0f, 1f) });
+            gcol.color = gg2;
+            var grd = gps.GetComponent<ParticleSystemRenderer>();
+            grd.material = dustMat;
+            grd.renderMode = ParticleSystemRenderMode.Billboard;
+            grd.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            gemBurstPrefab = PrefabUtility.SaveAsPrefabAsset(gg, Root + "/Prefabs/GemBurst.prefab");
+            UnityEngine.Object.DestroyImmediate(gg);
             Log("FX prefabs created");
         }
 
@@ -4266,6 +4794,21 @@ namespace WarriorRun.EditorTools
 
             // streaks live on the player root so they also fire while flying
             svc.speedLines = SetupSpeedLines(root.transform);
+
+            // runner FX — heel ribbons, boost flames/afterimages, shield dome,
+            // magnet ring, ghost shimmer, spring sparks, giant growth
+            var fx = root.AddComponent<RunnerFx>();
+            fx.visualRoot = visual.transform;
+            fx.ghostMat = mats["GhostPhase"];
+            fx.afterMat = mats["GhostAfter"];
+            fx.airTrails = new[] { SetupTrail(visual.transform, -0.14f), SetupTrail(visual.transform, 0.14f) };
+            fx.boostFlames = SetupFlames(visual.transform);
+            fx.springSwirl = SetupSwirl(visual.transform);
+            fx.shieldBubble = SetupBubble(root.transform);
+            fx.shieldShards = SetupShards(root.transform);
+            fx.magnetRing = SetupRing(root.transform);
+            fx.magnetRing2 = SetupRingTilt(root.transform);
+            fx.magnetSwirl = SetupMagnetSwirl(root.transform);
 
             return SavePrefab(root, "Player");
         }

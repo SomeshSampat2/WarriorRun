@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace WarriorRun.Core
 {
-    public enum Sfx { Coin, Jump, Slide, Swipe, Crash, Click, Start, PowerUp, ShieldBreak, Car, Plane }
+    public enum Sfx { Coin, Jump, Slide, Swipe, Crash, Click, Start, PowerUp, ShieldBreak, Car, Plane, Gem, Phase, Stomp, Spring, Ghost }
 
     /// <summary>
     /// Plays generated clips from Resources/Audio. Bootstraps itself so every
