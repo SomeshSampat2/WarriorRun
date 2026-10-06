@@ -7,6 +7,8 @@ namespace WarriorRun.World
     /// <summary>
     /// While the plane ability is airborne this drops coin patterns into the
     /// sky ahead of the runner — lane streams, weaves, double rows and arcs.
+    /// Patterns are stamped along the track spine (TrackManager.SamplePath),
+    /// so they bend through corners exactly like the floor does.
     /// Coins are pooled and cleared the moment the flight ends.
     /// </summary>
     public class SkyCoinSpawner : MonoBehaviour
@@ -23,14 +25,17 @@ namespace WarriorRun.World
         readonly Queue<GameObject> pool = new();
 
         Transform player;
+        Player.PlayerController pc;
+        TrackManager track;
         float timer;
         int patternIdx;
         bool wasFlying;
 
         void Start()
         {
-            var pc = FindFirstObjectByType<Player.PlayerController>();
+            pc = FindFirstObjectByType<Player.PlayerController>();
             player = pc != null ? pc.transform : null;
+            track = FindFirstObjectByType<TrackManager>();
             // fill the coin pool up front — pattern bursts would otherwise
             // Instantiate mid-frame and hitch when flight begins
             if (coinPrefab != null)
@@ -57,11 +62,12 @@ namespace WarriorRun.World
                 timer = interval;
             }
 
-            float behindZ = player.position.z - despawnBehind;
+            Vector3 fwd = pc != null ? pc.Forward : Vector3.forward;
             for (int i = live.Count - 1; i >= 0; i--)
             {
                 var c = live[i];
-                if (c == null || !c.activeSelf || c.transform.position.z < behindZ)
+                if (c == null || !c.activeSelf ||
+                    Vector3.Dot(c.transform.position - player.position, fwd) < -despawnBehind)
                 {
                     live.RemoveAt(i);
                     Recycle(c);
@@ -71,20 +77,20 @@ namespace WarriorRun.World
 
         void SpawnPattern(float baseY)
         {
-            float baseZ = player.position.z + spawnAhead;
+            float d0 = (GameManager.Instance != null ? GameManager.Instance.Distance : 0f) + spawnAhead;
             switch (patternIdx++ % 4)
             {
                 case 0: // clean stream down one lane
                 {
                     int lane = Random.Range(0, 3);
                     for (int i = 0; i < 6; i++)
-                        Spawn(new Vector3((lane - 1) * laneWidth, baseY, baseZ + i * 1.9f));
+                        Spawn(d0 + i * 1.9f, (lane - 1) * laneWidth, baseY);
                     break;
                 }
                 case 1: // weave that crosses every lane
                 {
                     for (int i = 0; i < 9; i++)
-                        Spawn(new Vector3(Mathf.Sin(i * 0.85f) * laneWidth, baseY, baseZ + i * 1.7f));
+                        Spawn(d0 + i * 1.7f, Mathf.Sin(i * 0.85f) * laneWidth, baseY);
                     break;
                 }
                 case 2: // two lanes at once — generous haul
@@ -93,8 +99,8 @@ namespace WarriorRun.World
                     int b = (a + Random.Range(1, 3)) % 3;
                     for (int i = 0; i < 5; i++)
                     {
-                        Spawn(new Vector3((a - 1) * laneWidth, baseY, baseZ + i * 1.9f));
-                        Spawn(new Vector3((b - 1) * laneWidth, baseY, baseZ + i * 1.9f));
+                        Spawn(d0 + i * 1.9f, (a - 1) * laneWidth, baseY);
+                        Spawn(d0 + i * 1.9f, (b - 1) * laneWidth, baseY);
                     }
                     break;
                 }
@@ -105,15 +111,28 @@ namespace WarriorRun.World
                         float t = i / 6f;
                         float x = Mathf.Lerp(-laneWidth, laneWidth, t);
                         float y = baseY + Mathf.Sin(t * Mathf.PI) * 0.85f;
-                        Spawn(new Vector3(x, y, baseZ + i * 1.6f));
+                        Spawn(d0 + i * 1.6f, x, y);
                     }
                     break;
                 }
             }
         }
 
-        void Spawn(Vector3 pos)
+        /// <summary>Drop a coin at path-distance <paramref name="pdist"/> + lateral offset.</summary>
+        void Spawn(float pdist, float latOff, float y)
         {
+            Vector3 pos;
+            if (track != null && track.SamplePath(pdist, out var p, out var tan))
+            {
+                var right = new Vector3(tan.z, 0f, -tan.x);
+                pos = p + right * latOff;
+            }
+            else
+            {
+                pos = player.position + (pc != null ? pc.Forward : Vector3.forward) * spawnAhead
+                      + (pc != null ? pc.RightDir : Vector3.right) * latOff;
+            }
+            pos.y = y;
             var c = pool.Count > 0 ? pool.Dequeue() : Instantiate(coinPrefab);
             c.transform.SetPositionAndRotation(pos, Quaternion.identity);
             c.SetActive(true);

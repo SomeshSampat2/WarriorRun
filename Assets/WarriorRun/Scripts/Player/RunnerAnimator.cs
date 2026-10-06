@@ -30,6 +30,7 @@ namespace WarriorRun.Player
         float leanX;              // current forward lean
         float rollZ;              // lateral lean on lane switch
         float targetRoll;
+        float turnYaw, turnRoll;  // corner body twist + bank
         bool wasGrounded = true;
         bool dead;
         float deadT;
@@ -124,7 +125,11 @@ namespace WarriorRun.Player
             leanX = Mathf.Lerp(leanX, leanTarget, 8f * Time.deltaTime);
             rollZ = Mathf.Lerp(rollZ, targetRoll, 10f * Time.deltaTime);
             targetRoll = Mathf.Lerp(targetRoll, 0f, 6f * Time.deltaTime);
-            transform.localEulerAngles = new Vector3(leanX, 0f, rollZ);
+            bool turningNow = pc != null && pc.IsTurning;
+            int tdir = pc != null ? pc.TurnDir : 0;
+            turnYaw = Mathf.Lerp(turnYaw, turningNow ? tdir * 24f : 0f, 7f * Time.deltaTime);
+            turnRoll = Mathf.Lerp(turnRoll, turningNow ? -tdir * 14f : 0f, 7f * Time.deltaTime);
+            transform.localEulerAngles = new Vector3(leanX, turnYaw, rollZ + turnRoll);
 
             // head counter-bob
             if (head != null)

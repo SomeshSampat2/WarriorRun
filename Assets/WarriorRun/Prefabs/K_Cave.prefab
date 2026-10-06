@@ -29,10 +29,10 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 5272191559940816717}
+  - {fileID: 7994452097684195171}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1001 &41597734363576073
+--- !u!1001 &3879651711259388760
 PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
@@ -40,69 +40,69 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 6520447067363083876}
     m_Modifications:
-    - target: {fileID: -3910990755373119420, guid: 80ea149023cb64540928105371e2444c, type: 3}
+    - target: {fileID: -7127136008811982402, guid: b8338edac39424b5d8a3f172f918c8a0, type: 3}
+      propertyPath: m_Name
+      value: cliff_cave_rock
+      objectReference: {fileID: 0}
+    - target: {fileID: -2655235375277151173, guid: b8338edac39424b5d8a3f172f918c8a0, type: 3}
       propertyPath: m_LocalScale.x
-      value: 1.1837205
+      value: 1.8
       objectReference: {fileID: 0}
-    - target: {fileID: -3910990755373119420, guid: 80ea149023cb64540928105371e2444c, type: 3}
+    - target: {fileID: -2655235375277151173, guid: b8338edac39424b5d8a3f172f918c8a0, type: 3}
       propertyPath: m_LocalScale.y
-      value: 1.1837205
+      value: 1.8
       objectReference: {fileID: 0}
-    - target: {fileID: -3910990755373119420, guid: 80ea149023cb64540928105371e2444c, type: 3}
+    - target: {fileID: -2655235375277151173, guid: b8338edac39424b5d8a3f172f918c8a0, type: 3}
       propertyPath: m_LocalScale.z
-      value: 1.1837205
+      value: 1.8
       objectReference: {fileID: 0}
-    - target: {fileID: -3910990755373119420, guid: 80ea149023cb64540928105371e2444c, type: 3}
+    - target: {fileID: -2655235375277151173, guid: b8338edac39424b5d8a3f172f918c8a0, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -16.444237
+      value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: -3910990755373119420, guid: 80ea149023cb64540928105371e2444c, type: 3}
+    - target: {fileID: -2655235375277151173, guid: b8338edac39424b5d8a3f172f918c8a0, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.014063597
+      value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: -3910990755373119420, guid: 80ea149023cb64540928105371e2444c, type: 3}
+    - target: {fileID: -2655235375277151173, guid: b8338edac39424b5d8a3f172f918c8a0, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -0.008347616
+      value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: -3910990755373119420, guid: 80ea149023cb64540928105371e2444c, type: 3}
+    - target: {fileID: -2655235375277151173, guid: b8338edac39424b5d8a3f172f918c8a0, type: 3}
       propertyPath: m_LocalRotation.w
       value: 1
       objectReference: {fileID: 0}
-    - target: {fileID: -3910990755373119420, guid: 80ea149023cb64540928105371e2444c, type: 3}
+    - target: {fileID: -2655235375277151173, guid: b8338edac39424b5d8a3f172f918c8a0, type: 3}
       propertyPath: m_LocalRotation.x
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: -3910990755373119420, guid: 80ea149023cb64540928105371e2444c, type: 3}
+    - target: {fileID: -2655235375277151173, guid: b8338edac39424b5d8a3f172f918c8a0, type: 3}
       propertyPath: m_LocalRotation.y
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: -3910990755373119420, guid: 80ea149023cb64540928105371e2444c, type: 3}
+    - target: {fileID: -2655235375277151173, guid: b8338edac39424b5d8a3f172f918c8a0, type: 3}
       propertyPath: m_LocalRotation.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: -3910990755373119420, guid: 80ea149023cb64540928105371e2444c, type: 3}
+    - target: {fileID: -2655235375277151173, guid: b8338edac39424b5d8a3f172f918c8a0, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: -3910990755373119420, guid: 80ea149023cb64540928105371e2444c, type: 3}
+    - target: {fileID: -2655235375277151173, guid: b8338edac39424b5d8a3f172f918c8a0, type: 3}
       propertyPath: m_LocalEulerAnglesHint.y
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: -3910990755373119420, guid: 80ea149023cb64540928105371e2444c, type: 3}
+    - target: {fileID: -2655235375277151173, guid: b8338edac39424b5d8a3f172f918c8a0, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8771091787928289351, guid: 80ea149023cb64540928105371e2444c, type: 3}
-      propertyPath: m_Name
-      value: namaqualand_rocks_01
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
-  m_SourcePrefab: {fileID: -4161369568681901532, guid: 80ea149023cb64540928105371e2444c, type: 3}
---- !u!4 &5272191559940816717 stripped
+  m_SourcePrefab: {fileID: 3150474306388093854, guid: b8338edac39424b5d8a3f172f918c8a0, type: 3}
+--- !u!4 &7994452097684195171 stripped
 Transform:
-  m_CorrespondingSourceObject: {fileID: -3910990755373119420, guid: 80ea149023cb64540928105371e2444c, type: 3}
-  m_PrefabInstance: {fileID: 41597734363576073}
+  m_CorrespondingSourceObject: {fileID: -2655235375277151173, guid: b8338edac39424b5d8a3f172f918c8a0, type: 3}
+  m_PrefabInstance: {fileID: 3879651711259388760}
   m_PrefabAsset: {fileID: 0}

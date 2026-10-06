@@ -852,6 +852,8 @@ namespace WarriorRun.EditorTools
             z.FindPropertyRelative("decorXMax").floatValue = xMax;
             z.FindPropertyRelative("decorCount").intValue = dCount;
             z.FindPropertyRelative("featureCount").intValue = fCount;
+            var sl = z.FindPropertyRelative("singleLane");
+            if (sl != null) sl.boolValue = false;
             var fc = z.FindPropertyRelative("fogColor");
             fc.colorValue = Hex(fog);
         }
@@ -870,29 +872,36 @@ namespace WarriorRun.EditorTools
                 "X_RollBarrel", "X_Snowball", "X_IceCrystal", "X_NeonBeam", "X_LavaPool", "X_ObsidianSpike");
 
             var zones = so.FindProperty("zones");
+            // builder order: 0 Temple, 1 Forest, 2 Vault, 3 Canyon,
+            // 4 Volcano (single-lane), 5 City, 6 Lagoon
             // rebalance existing pools — fewer standing trees, more variety
             SetPrefabArray(zones.GetArrayElementAtIndex(1).FindPropertyRelative("obstaclePrefabs"),
                 "LogBarrier", "RockJump", "HighBarrier", "N_Stump", "WallBlock", "N_DeadFall");
             SetPrefabArray(zones.GetArrayElementAtIndex(3).FindPropertyRelative("obstaclePrefabs"),
                 "RockJump", "CactusBlock", "SpikeTrap", "RockBlock", "WallBlock");
+            // volcano is single-lane — only obstacles you can clear in place
+            // (jumpable lava pools / barriers), never wall blocks
             SetPrefabArray(zones.GetArrayElementAtIndex(4).FindPropertyRelative("obstaclePrefabs"),
-                "C_Bench", "C_Dumpster", "HighBarrier", "C_Crates", "C_CarBlock", "WallBlock");
+                "RockJump", "X_LavaPool", "RockJump", "HighBarrier");
+            zones.GetArrayElementAtIndex(4).FindPropertyRelative("singleLane").boolValue = true;
             SetPrefabArray(zones.GetArrayElementAtIndex(5).FindPropertyRelative("obstaclePrefabs"),
+                "C_Bench", "C_Dumpster", "HighBarrier", "C_Crates", "C_CarBlock", "WallBlock");
+            SetPrefabArray(zones.GetArrayElementAtIndex(6).FindPropertyRelative("obstaclePrefabs"),
                 "W_Wave", "W_Buoy", "SpikeTrap", "W_Geyser");
 
             // append the three new biomes
-            zones.arraySize = 9;
-            SetZone(zones.GetArrayElementAtIndex(6), "Frost",
+            zones.arraySize = 10;
+            SetZone(zones.GetArrayElementAtIndex(7), "Frost",
                 "Tile_Frost_A", new[] { "Tile_Frost_A", "Tile_Frost_B" },
                 new[] { "F_PineSnow", "F_IceShard", "F_SnowRock", "F_Snowman", "F_PineSnowTall" },
                 null, new[] { "X_Snowball", "X_IceCrystal", "X_SnowMound", "X_IceCrystal" },
                 5.8f, 15f, 11, 0, "#DCEBF2");
-            SetZone(zones.GetArrayElementAtIndex(7), "Ember",
+            SetZone(zones.GetArrayElementAtIndex(8), "Ember",
                 "Tile_Ember_A", new[] { "Tile_Ember_A", "Tile_Ember_B" },
                 new[] { "E_Obsidian", "E_LavaVent", "E_CharredTrunk", "E_EmberCrag", "E_Obsidian" },
                 null, new[] { "X_ObsidianSpike", "X_LavaPool", "SpikeTrap", "X_ObsidianSpike" },
                 5.8f, 15f, 11, 0, "#3C2B2A");
-            SetZone(zones.GetArrayElementAtIndex(8), "Neon",
+            SetZone(zones.GetArrayElementAtIndex(9), "Neon",
                 "Tile_Neon_A", new[] { "Tile_Neon_A", "Tile_Neon_B" },
                 new[] { "N_Pylon", "N_HoloCube", "N_GlowTotem", "N_Pylon", "N_HoloCube" },
                 null, new[] { "X_NeonBeam", "X_NeonPillar", "X_NeonBeam", "X_RollBarrel" },

@@ -66,7 +66,7 @@ namespace WarriorRun.EditorTools
         static readonly Color ColStarCyan = Hex("#9FE8FF");
 
         static TMP_FontAsset gameFont, titleFont;
-        static Sprite roundRect, circle, coinIcon;
+        static Sprite roundRect, circle, coinIcon, chevSpr;
         static Sprite cardSpr, btnSpr, pillSpr, softPuff, scrimSpr, starSpr;
         static readonly Dictionary<string, AnimationClip> clips = new();
         static RuntimeAnimatorController runnerCtrl;
@@ -357,6 +357,19 @@ namespace WarriorRun.EditorTools
             Mat("BoostOrb", Hex("#3FD4FF"), 0.75f, 0.1f, true);
             Mat("BoostCore", Hex("#FFF3AE"), 0.7f, 0f, true);
             Mat("ShieldGold", Hex("#F0B93E"), 0.6f, 0.5f, true);
+            // floating corner chevrons — hot gold so the turn reads at speed
+            var tg = Mat("TurnGold", Hex("#FFC93C"), 0.45f, 0.1f, true);
+            tg.SetColor("_EmissionColor", Hex("#FFB43A") * 2.3f);
+            EditorUtility.SetDirty(tg);
+            // volcanic zone — black basalt walkway over glowing lava
+            Mat("Basalt", Hex("#2A2530"), 0.16f);
+            Mat("BasaltDark", Hex("#17141C"), 0.12f);
+            var lava = Mat("Lava", Hex("#FF5A1F"), 0.6f, 0f, true);
+            lava.SetColor("_EmissionColor", Hex("#FF6A1A") * 2.8f);
+            EditorUtility.SetDirty(lava);
+            var lavaD = Mat("LavaDeep", Hex("#B32A10"), 0.5f, 0f, true);
+            lavaD.SetColor("_EmissionColor", Hex("#E8380F") * 1.9f);
+            EditorUtility.SetDirty(lavaD);
 
             // vehicles — glossy paint, glass, rubber, chrome
             Mat("CarPaint", Hex("#D43D2A"), 0.85f, 0.35f);
@@ -486,6 +499,21 @@ namespace WarriorRun.EditorTools
                 if (fx > edge + 0.08f && fx < edge + 0.19f && band < 0.34f) return (Color32)ColUIPanel;
                 return (Color32)ColUIAccent;
             }, out _);
+
+            // chunky ">" chevron — HUD turn-warning arrow
+            WriteSprite(Root + "/Sprites/Chevron.png", 96, 96, (x, y, w, h) =>
+            {
+                float Dist(float px, float py, float ax, float ay, float bx, float by)
+                {
+                    float dx = bx - ax, dy = by - ay;
+                    float t = Mathf.Clamp01(((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy));
+                    float ex = ax + t * dx - px, ey = ay + t * dy - py;
+                    return Mathf.Sqrt(ex * ex + ey * ey);
+                }
+                bool inside = Dist(x, y, 24f, 14f, 74f, 48f) < 13f
+                           || Dist(x, y, 24f, 82f, 74f, 48f) < 13f;
+                return inside ? new Color32(255, 255, 255, 255) : new Color32(255, 255, 255, 0);
+            }, out chevSpr);
             Log("Sprites written");
         }
 
@@ -996,9 +1024,7 @@ namespace WarriorRun.EditorTools
             prefabs["K_Cactus"] = MakeDecorK("cactus_tall", "K_Cactus", new Vector3(1.4f, 1.4f, 1.4f), sway: 3.4f);
             prefabs["K_CactusS"] = MakeDecorK("cactus_short", "K_CactusS", new Vector3(1.3f, 1.3f, 1.3f), sway: 3.4f);
             prefabs["K_Camp"] = MakeDecorK("campfire_stones", "K_Camp", new Vector3(1.4f, 1.4f, 1.4f));
-            // egypt/desert dressing — stepped pyramids, obelisks, ruined columns, dunes
-            prefabs["D_Pyramid"] = MakePyramidPrefab("D_Pyramid", 3.4f, 2.6f, 4, true);
-            prefabs["D_PyramidBig"] = MakePyramidPrefab("D_PyramidBig", 6.4f, 5.0f, 5, true);
+            // egypt/desert dressing — obelisks, ruined columns, dunes
             prefabs["D_Obelisk"] = MakeObeliskPrefab();
             prefabs["D_RuinCol"] = MakeRuinColPrefab();
             prefabs["D_Dune"] = MakeDunePrefab();
@@ -1052,6 +1078,11 @@ namespace WarriorRun.EditorTools
             prefabs["PU_Plane"] = MakePowerUpPlane();
             // lagoon water-slide zone — flume tile, water obstacles, palm decor
             prefabs["Tile_Water"] = MakeWaterTile();
+            prefabs["Tile_TurnR"] = MakeTurnTile(1, "Tile_TurnR");
+            prefabs["Tile_TurnL"] = MakeTurnTile(-1, "Tile_TurnL");
+            // volcanic chasm — narrow basalt bridge, lava channels flanking
+            prefabs["Tile_Lava_A"] = MakeLavaTile(0, "Tile_Lava_A");
+            prefabs["Tile_Lava_B"] = MakeLavaTile(1, "Tile_Lava_B");
             prefabs["W_Wave"] = MakeWaveBarrier();
             prefabs["W_Buoy"] = MakeBuoyBlock();
             prefabs["W_Geyser"] = MakeGeyserBlock();
@@ -1130,10 +1161,48 @@ namespace WarriorRun.EditorTools
             return go;
         }
 
+        /// <summary>
+        /// Nature3 (Quaternius Ultimate Stylized Nature) was never committed —
+        /// Art/Nature (Ultimate Nature) is the pack on disk, with different
+        /// filenames. Every Nature3 name the builder references translates here.
+        /// </summary>
+        static readonly Dictionary<string, string> N3ToN1 = new()
+        {
+            // leafy trees — maple/normal fold onto CommonTree + Willow
+            ["BirchTree_1"]="BirchTree_1", ["BirchTree_2"]="BirchTree_2", ["BirchTree_3"]="BirchTree_3",
+            ["BirchTree_4"]="BirchTree_1", ["BirchTree_5"]="BirchTree_2",
+            ["MapleTree_1"]="CommonTree_1", ["MapleTree_2"]="CommonTree_2", ["MapleTree_3"]="CommonTree_3",
+            ["MapleTree_4"]="CommonTree_2", ["MapleTree_5"]="CommonTree_1",
+            ["NormalTree_1"]="CommonTree_1", ["NormalTree_2"]="CommonTree_2", ["NormalTree_3"]="CommonTree_3",
+            ["NormalTree_4"]="Willow_1", ["NormalTree_5"]="Willow_2",
+            ["PineTree_1"]="PineTree_1", ["PineTree_2"]="PineTree_2", ["PineTree_3"]="PineTree_3",
+            ["PineTree_4"]="PineTree_4", ["PineTree_5"]="PineTree_5",
+            ["PalmTree_1"]="PalmTree_1", ["PalmTree_2"]="PalmTree_2", ["PalmTree_3"]="PalmTree_1",
+            ["PalmTree_4"]="PalmTree_2", ["PalmTree_5"]="PalmTree_1",
+            // dead trees
+            ["DeadTree_1"]="CommonTree_Dead_1", ["DeadTree_2"]="CommonTree_Dead_2",
+            ["DeadTree_3"]="CommonTree_Dead_3", ["DeadTree_4"]="CommonTree_Dead_1",
+            ["DeadTree_5"]="CommonTree_Dead_2", ["DeadTree_6"]="CommonTree_Dead_3",
+            ["DeadTree_7"]="CommonTree_Dead_1", ["DeadTree_8"]="CommonTree_Dead_2",
+            ["DeadTree_9"]="CommonTree_Dead_3", ["DeadTree_10"]="CommonTree_Dead_1",
+            // undergrowth
+            ["Bush"]="Bush_1", ["Bush_Small"]="Bush_1", ["Bush_Small_Flowers"]="Bush_2",
+            ["Bush_Flowers"]="BushBerries_1", ["Bush_Large_Flowers"]="BushBerries_1",
+            ["Grass_Small"]="Grass_Short", ["Grass_Large"]="Grass_2", ["Grass_Large_Extruded"]="Grass_2",
+            ["Flower_1_Clump"]="Flowers", ["Flower_2_Clump"]="Flowers", ["Flower_3_Clump"]="Flowers",
+            ["Flower_4_Clump"]="Flowers", ["Flower_5_Clump"]="Flowers",
+            ["Plant_1"]="Plant_1", ["Plant_2"]="Plant_2", ["Plant_Flowers"]="Plant_3",
+            // rocks + stumps keep their names
+            ["Rock_1"]="Rock_1", ["Rock_2"]="Rock_2", ["Rock_3"]="Rock_3", ["Rock_4"]="Rock_4",
+            ["Rock_5"]="Rock_5", ["TreeStump"]="TreeStump",
+        };
+
         /// <summary>Instantiate a Nature3 FBX (Quaternius Ultimate Stylized Nature) under parent; wires the pack's textures by material name.</summary>
         static GameObject QModel(string name, Transform parent, Vector3 localPos, float rotY = 0f, Vector3? scale = null, string rockTex = null)
         {
             var src = AssetDatabase.LoadAssetAtPath<GameObject>(ArtDir + "/Nature3/" + name + ".fbx");
+            if (src == null && N3ToN1.TryGetValue(name, out var alt))
+                src = AssetDatabase.LoadAssetAtPath<GameObject>(ArtDir + "/Nature/" + alt + ".fbx");
             if (src == null) { Log("MISSING nature3 " + name); return null; }
             var go = (GameObject)PrefabUtility.InstantiatePrefab(src);
             go.name = name;
@@ -1279,6 +1348,15 @@ namespace WarriorRun.EditorTools
             m.transform.localScale *= targetZ / b.size.z;
         }
 
+        /// <summary>Uniform-scale a placed model so its world X extent hits target.</summary>
+        static void UniformFitX(GameObject m, float targetX)
+        {
+            if (m == null) return;
+            var b = ComputeLocalBounds(m);
+            if (b.size.x < 0.01f) return;
+            m.transform.localScale *= targetX / b.size.x;
+        }
+
         /// <summary>Shift a placed model so its rendered base sits at groundY (local space of the prefab root).</summary>
         static void SnapToGround(GameObject m, float groundY)
         {
@@ -1391,6 +1469,335 @@ namespace WarriorRun.EditorTools
             return SavePrefab(root, "Tile_Vault");
         }
 
+        /// <summary>Instantiate a Blender-built prop from Art/Realistic/Models/&lt;id&gt;/&lt;id&gt;.gltf.</summary>
+        static GameObject BModel(string id, Transform parent, Vector3 localPos, float rotY = 0f)
+        {
+            var src = AssetDatabase.LoadAssetAtPath<GameObject>(ArtDir + "/Realistic/Models/" + id + "/" + id + ".gltf");
+            if (src == null) { Log("MISSING blender model " + id); return null; }
+            var go = (GameObject)PrefabUtility.InstantiatePrefab(src);
+            go.name = id;
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localPos;
+            go.transform.localRotation = Quaternion.Euler(0f, rotY, 0f);
+            StripColliders(go);
+            return go;
+        }
+
+        /// <summary>
+        /// Corner junction tile — a walled plaza where the path bends 90°.
+        /// dir=+1 exits east (local +X), dir=-1 exits west. The straight-ahead
+        /// corridor dead-ends into a wall with a hidden "DeadEnd" kill trigger;
+        /// a trail signpost, a sandstone exit gate and floating gold chevrons
+        /// all point the way around. TrackManager routes the spine through it:
+        /// entry along +Z, arc about the inner corner, exit along dir*X.
+        /// </summary>
+        static GameObject MakeTurnTile(int dir, string name)
+        {
+            var root = new GameObject("TurnTile");
+            float sx = dir;
+            var rng = new System.Random(dir > 0 ? 911 : 733);
+
+            // paved plaza — whole 24x24 junction reads as one surface
+            Prim(PrimitiveType.Cube, "Plaza", mats["Track"], root.transform,
+                new Vector3(0, -0.28f, 12), new Vector3(24f, 0.6f, 24f), keepCollider: true);
+            // raised L-path skin over the walkable arms (entry + exit)
+            Prim(PrimitiveType.Cube, "PathA", mats["TrackDark"], root.transform,
+                new Vector3(0, -0.10f, 8.5f), new Vector3(9.4f, 0.28f, 17f), keepCollider: true);
+            Prim(PrimitiveType.Cube, "PathB", mats["TrackDark"], root.transform,
+                new Vector3(sx * 3.65f, -0.10f, 12), new Vector3(16.7f, 0.28f, 9.4f), keepCollider: true);
+            // generous bed under the junction — corner decor and any overshoot
+            // land on ground instead of void
+            Prim(PrimitiveType.Cube, "UnderBed", mats["StoneDark"], root.transform,
+                new Vector3(0, -0.75f, 20), new Vector3(64f, 0.5f, 40f), keepCollider: true);
+
+            // flagstones down the entry arm and along the exit arm
+            for (int zi = 0; zi < 4; zi++)
+                foreach (var cx in new[] { -2f, 2f })
+                {
+                    var f = DModel("floor_tile_large", root.transform,
+                        new Vector3(cx, 0f, zi * 4f + 2f));
+                    if (f != null) { FitModel(f, targetX: 4f); FitModel(f, targetZ: 4f); FixDungeonMats(f); }
+                }
+            for (int i = 0; i < 3; i++)
+                foreach (var rz in new[] { 10f, 14f })
+                {
+                    var f = DModel("floor_tile_large", root.transform,
+                        new Vector3(sx * (0.7f + i * 4f), 0f, rz), 90f);
+                    if (f != null) { FitModel(f, targetX: 4f); FitModel(f, targetZ: 4f); FixDungeonMats(f); }
+                }
+
+            // perimeter walls — the junction is enclosed except the two mouths.
+            // A wall authored running along X at rotY=0 keeps that axis at
+            // rotY 0/180 and runs along Z at ±90 — fit the long axis accordingly.
+            string[] wp = { "wall", "wall_pillar", "D2:wall_window_open", "wall_arched", "wall_cracked", "wall_doorway" };
+            void Wall(string model, Vector3 pos, float rotY)
+            {
+                var w = DModel(model, root.transform, pos, rotY);
+                if (w == null) return;
+                if (model.StartsWith("D2:"))
+                {
+                    bool alongX = Mathf.Abs(Mathf.Sin(rotY * Mathf.Deg2Rad)) < 0.5f;
+                    if (alongX) UniformFitX(w, 4f); else UniformFitZ(w, 4f);
+                }
+                SnapToGround(w, 0.02f);
+                FixDungeonMats(w);
+            }
+            int wi = 0;
+            // dead-end wall across the north edge
+            for (int i = 0; i < 6; i++) Wall(wp[wi++ % wp.Length], new Vector3(-10f + i * 4f, 0.02f, 22.6f), 180f);
+            // outer edge — opposite the exit
+            for (int i = 0; i < 6; i++) Wall(wp[wi++ % wp.Length], new Vector3(-sx * 11.6f, 0.02f, 2f + i * 4f), dir * 90f);
+            // exit edge, flanking the opening
+            Wall(wp[wi++ % wp.Length], new Vector3(sx * 11.6f, 0.02f, 2.3f), -dir * 90f);
+            Wall(wp[wi++ % wp.Length], new Vector3(sx * 11.6f, 0.02f, 5.9f), -dir * 90f);
+            Wall(wp[wi++ % wp.Length], new Vector3(sx * 11.6f, 0.02f, 18.4f), -dir * 90f);
+            Wall(wp[wi++ % wp.Length], new Vector3(sx * 11.6f, 0.02f, 22.2f), -dir * 90f);
+            // entry mouth flanks
+            foreach (var fx in new[] { -7.2f, 7.2f, -10.9f, 10.9f })
+                Wall(wp[wi++ % wp.Length], new Vector3(fx, 0.02f, 0.4f), 0f);
+
+            // inner-corner bastion — a weathered rock mass the bend wraps around
+            Prim(PrimitiveType.Cube, "BastionA", mats["StoneDark"], root.transform,
+                new Vector3(sx * 8.4f, 0.7f, 3.2f), new Vector3(5.8f, 1.9f, 6.2f));
+            Prim(PrimitiveType.Cube, "BastionB", mats["TrackDark"], root.transform,
+                new Vector3(sx * 8.9f, 2.2f, 3.9f), new Vector3(3.8f, 1.5f, 4.0f));
+            var bc = DModel("column", root.transform, new Vector3(sx * 8.6f, 0f, 3.4f), rng.Next(4) * 90);
+            if (bc != null) { FitModel(bc, targetY: 6.2f); SnapToGround(bc, 2.9f); FixDungeonMats(bc); }
+            var rb = DModel("rubble_large", root.transform, new Vector3(sx * 6.1f, 0f, 6.3f), rng.Next(360));
+            if (rb != null) { FitModel(rb, targetY: 0.8f); SnapToGround(rb, 0.04f); FixDungeonMats(rb); }
+
+            // dead-end kill trigger — invisible, just ahead of the north wall;
+            // running straight past the bend hits this and crashes
+            var de = new GameObject("DeadEnd");
+            de.transform.SetParent(root.transform, false);
+            var dc = de.AddComponent<BoxCollider>();
+            dc.isTrigger = true;
+            dc.center = new Vector3(0f, 1.7f, 18.4f);
+            dc.size = new Vector3(11f, 3.4f, 1.8f);
+            de.AddComponent<Obstacle>().kind = ObstacleKind.WallBlock;
+
+            // trail signpost — arrow plank points along the exit. The GLB's
+            // "ArrowTip" child tells us which local X it points down, so the
+            // yaw self-corrects whatever axis the exporter picked.
+            var sign = BModel("bl_turnsign", root.transform, new Vector3(sx * 5.9f, 0.02f, 4.6f));
+            if (sign != null)
+            {
+                var tip = sign.transform.Find("ArrowTip");
+                float tipX = tip != null ? tip.localPosition.x : 1f;
+                sign.transform.localRotation = Quaternion.Euler(0f, Mathf.Sign(tipX) == sx ? 0f : 180f, 0f);
+            }
+
+            // sandstone gate framing the exit mouth — walk-through axis is the
+            // gate's Z; measure and rotate so it straddles the exit arm
+            var gate = BModel("bl_gate", root.transform, new Vector3(sx * 11.4f, 0.02f, 12f));
+            if (gate != null)
+            {
+                var gb = ComputeLocalBounds(gate);
+                float yaw = dir * 90f;                    // opening along exit dir
+                if (gb.size.z > gb.size.x) yaw += 90f;    // authored the other way around
+                gate.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+                SnapToGround(gate, 0.02f);
+            }
+
+            // floating gold chevrons — one over the bend apex, one on the
+            // dead-end wall — both pointing down the exit arm
+            ChevronArrow(root.transform, dir, new Vector3(dir * 2.4f, 3.6f, 10.6f));
+            ChevronArrow(root.transform, dir, new Vector3(0f, 3.5f, 20.4f));
+
+            // a corner torch for a warm glow at the junction mouth
+            var torch = DModel("torch_lit", root.transform, new Vector3(-sx * 4.9f, 0.02f, 8f), rng.Next(360));
+            if (torch != null) { SnapToGround(torch, 0.02f); FixDungeonMats(torch); }
+
+            return SavePrefab(root, name);
+        }
+
+        /// <summary>Floating "»" chevron pair in gold — arrows point along dir*localX.</summary>
+        static void ChevronArrow(Transform parent, int dir, Vector3 localPos)
+        {
+            var pivot = new GameObject("TurnChevron");
+            pivot.transform.SetParent(parent, false);
+            pivot.transform.localPosition = localPos;
+            var anim = pivot.AddComponent<ObstacleAnim>();
+            anim.bobAmp = 0.16f;
+            anim.bobFreq = 1.8f;
+
+            for (int c = 0; c < 2; c++)
+            {
+                float back = c * 0.95f;                    // second chevron trails behind
+                float s = c == 0 ? 1f : 0.78f;             // and reads slightly smaller
+                // upper bar: from (-0.35,+0.55) to tip (dir*0.75,0)
+                Prim(PrimitiveType.Cube, "ChevA_" + c, mats["TurnGold"], pivot.transform,
+                    new Vector3(dir * 0.2f - dir * back, 0f, 0.275f * s) ,
+                    new Vector3(0.5f * s, 0.22f, 1.3f * s))
+                    .transform.localRotation = Quaternion.Euler(0f, dir * 116.6f, 0f);
+                // lower bar: from (-0.35,-0.55) to tip (dir*0.75,0)
+                Prim(PrimitiveType.Cube, "ChevB_" + c, mats["TurnGold"], pivot.transform,
+                    new Vector3(dir * 0.2f - dir * back, 0f, -0.275f * s),
+                    new Vector3(0.5f * s, 0.22f, 1.3f * s))
+                    .transform.localRotation = Quaternion.Euler(0f, dir * 63.4f, 0f);
+            }
+
+            // warm glow so the chevron reads through fog
+            var lgo = new GameObject("Glow");
+            lgo.transform.SetParent(pivot.transform, false);
+            var l = lgo.AddComponent<Light>();
+            l.type = LightType.Point;
+            l.color = Hex("#FFB43A");
+            l.intensity = 2.2f;
+            l.range = 9f;
+            l.shadows = LightShadows.None;
+        }
+
+        /// <summary>
+        /// Volcanic chasm tile — a narrow basalt bridge (still three lanes,
+        /// but reads tight) with glowing lava channels lapping both sides.
+        /// The lava surface bobs up and down, crust plates drift on it, ember
+        /// particles rise, and a flickering glow lights the bridge. Each
+        /// channel carries a kill trigger so leaving the walkway is death.
+        /// Variant 1 adds a basalt arch over the path.
+        /// </summary>
+        static GameObject MakeLavaTile(int variant, string name)
+        {
+            var root = new GameObject("LavaTile");
+            var rng = new System.Random(4242 + variant);
+
+            // scorched bed far below — decor lands here, nothing glows through
+            Prim(PrimitiveType.Cube, "Bed", mats["BasaltDark"], root.transform,
+                new Vector3(0f, -1.6f, 12f), new Vector3(44f, 0.5f, 26f), keepCollider: true);
+            // narrow walkway — single pinned centre lane, lava within arm's reach
+            Prim(PrimitiveType.Cube, "Path", mats["Basalt"], root.transform,
+                new Vector3(0f, -0.14f, 12f), new Vector3(7.4f, 0.32f, 24f), keepCollider: true);
+            // curb lips framing the drop into lava
+            foreach (var sx in new[] { -1f, 1f })
+                Prim(PrimitiveType.Cube, "Curb", mats["StoneDark"], root.transform,
+                    new Vector3(sx * 3.85f, 0.02f, 12f), new Vector3(0.35f, 0.12f, 24f), keepCollider: true);
+
+            // lava channels on both flanks
+            foreach (var sx in new[] { -1f, 1f })
+            {
+                var flow = new GameObject("LavaFlow");
+                flow.transform.SetParent(root.transform, false);
+                flow.transform.localPosition = new Vector3(sx * 8f, 0f, 12f);
+
+                // molten surface — no collider, it kills via trigger
+                Prim(PrimitiveType.Cube, "Lava", mats["Lava"], flow.transform,
+                    new Vector3(0f, -0.62f, 0f), new Vector3(7.9f, 0.5f, 24f));
+                // dark crust plates drifting on the melt
+                int plates = 4 + rng.Next(3);
+                for (int i = 0; i < plates; i++)
+                    Prim(PrimitiveType.Cube, "Crust", mats["LavaDeep"], flow.transform,
+                        new Vector3(((float)rng.NextDouble() - 0.5f) * 6.2f, -0.30f,
+                            ((float)rng.NextDouble() - 0.5f) * 20f),
+                        new Vector3(1.2f + (float)rng.NextDouble() * 1.8f, 0.12f,
+                            1.4f + (float)rng.NextDouble() * 2.4f));
+
+                // the whole channel breathes — surface + crust rise and fall
+                var anim = flow.AddComponent<ObstacleAnim>();
+                anim.bobAmp = 0.22f;
+                anim.bobFreq = 0.30f;
+                anim.rockAxis = Vector3.forward;
+                anim.rockDeg = 0.9f;
+                anim.rockFreq = 0.18f;
+
+                // kill trigger — off the walkway means a lava bath
+                var hz = new GameObject("LavaHazard");
+                hz.transform.SetParent(root.transform, false);
+                var hc = hz.AddComponent<BoxCollider>();
+                hc.isTrigger = true;
+                hc.center = new Vector3(sx * 8f, 1.1f, 12f);
+                hc.size = new Vector3(8.1f, 3.2f, 24f);
+                hz.AddComponent<Obstacle>().kind = ObstacleKind.WallBlock;
+
+                Embers(flow.transform, new Vector3(0f, -0.35f, 0f));
+
+                // molten glow with a slow breathing flicker
+                var lgo = new GameObject("LavaGlow");
+                lgo.transform.SetParent(flow.transform, false);
+                lgo.transform.localPosition = new Vector3(0f, 1.5f, 0f);
+                var l = lgo.AddComponent<Light>();
+                l.type = LightType.Point;
+                l.color = Hex("#FF7A2A");
+                l.intensity = 2.4f;
+                l.range = 11f;
+                l.shadows = LightShadows.None;
+                var fl = lgo.AddComponent<TorchFlicker>();
+                var fso = new SerializedObject(fl);
+                fso.FindProperty("baseIntensity").floatValue = 2.4f;
+                fso.FindProperty("baseRange").floatValue = 11f;
+                fso.FindProperty("jitter").floatValue = 0.38f;
+                fso.FindProperty("speed").floatValue = 2.6f;
+                fso.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            // basalt spires + dead trees on the far banks
+            for (int i = 0; i < 5; i++)
+            {
+                float sx = (i % 2 == 0 ? -1f : 1f) * (13.5f + (float)rng.NextDouble() * 4f);
+                float z = 1.5f + (float)rng.NextDouble() * 21f;
+                float h = 2.2f + (float)rng.NextDouble() * 3.4f;
+                var spire = Prim(PrimitiveType.Cube, "Spire", mats["Basalt"], root.transform,
+                    new Vector3(sx, h * 0.4f, z), new Vector3(0.9f + (float)rng.NextDouble(), h, 0.9f + (float)rng.NextDouble()));
+                spire.transform.localRotation = Quaternion.Euler(
+                    (float)rng.NextDouble() * 14f - 7f, (float)rng.NextDouble() * 360f,
+                    (float)rng.NextDouble() * 14f - 7f);
+            }
+            for (int i = 0; i < 3; i++)
+            {
+                float sx = (i % 2 == 0 ? 1f : -1f) * (14f + (float)rng.NextDouble() * 3.5f);
+                var t = QModel(QDead[rng.Next(QDead.Length)], root.transform,
+                    new Vector3(sx, 0f, 3f + (float)rng.NextDouble() * 18f), rng.Next(360));
+                if (t != null) { FitModel(t, targetY: 4.5f + (float)rng.NextDouble() * 1.5f); SnapToGround(t, -1.3f); }
+            }
+
+            // variant B — a basalt arch gate straddling the walkway mid-tile
+            if (variant == 1)
+            {
+                foreach (var sx in new[] { -1f, 1f })
+                {
+                    var col = DModel("column", root.transform, new Vector3(sx * 4.4f, 0f, 12f), rng.Next(4) * 90f);
+                    if (col != null) { FitModel(col, targetY: 5.4f); SnapToGround(col, 0.02f); FixDungeonMats(col); }
+                }
+                Prim(PrimitiveType.Cube, "Lintel", mats["Basalt"], root.transform,
+                    new Vector3(0f, 5.9f, 12f), new Vector3(11f, 1.1f, 1.6f));
+            }
+
+            return SavePrefab(root, name);
+        }
+
+        /// <summary>Rising ember motes over a lava channel — looping world-space particles.</summary>
+        static void Embers(Transform parent, Vector3 localPos)
+        {
+            var go = new GameObject("Embers");
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localPos;
+            var ps = go.AddComponent<ParticleSystem>();
+            var main = ps.main;
+            main.loop = true;
+            main.duration = 6f;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(1.4f, 2.6f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(1.2f, 2.8f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.05f, 0.17f);
+            main.startColor = new ParticleSystem.MinMaxGradient(
+                new Color(1f, 0.58f, 0.16f), new Color(1f, 0.26f, 0.05f));
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.maxParticles = 70;
+            var em = ps.emission;
+            em.rateOverTime = 16f;
+            var sh = ps.shape;
+            sh.shapeType = ParticleSystemShapeType.Box;
+            sh.scale = new Vector3(7f, 0.4f, 22f);
+            var col = ps.colorOverLifetime;
+            col.enabled = true;
+            var g = new Gradient();
+            g.SetKeys(
+                new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(new Color(1f, 0.4f, 0.1f), 1f) },
+                new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0f, 1f) });
+            col.color = g;
+            var rend = go.GetComponent<ParticleSystemRenderer>();
+            rend.renderMode = ParticleSystemRenderMode.Billboard;
+            rend.sharedMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Default-ParticleSystem.mat");
+        }
+
         static GameObject MakeForestTile(int seed, string name) // OPEN forest — dense stylized woodland
         {
             var root = new GameObject("TrackTile");
@@ -1460,7 +1867,7 @@ namespace WarriorRun.EditorTools
             return SavePrefab(root, name);
         }
 
-        static GameObject MakeCanyonTile(int seed, string name) // DESERT — sandy run, low rims, egypt ruins, pyramid skyline
+        static GameObject MakeCanyonTile(int seed, string name) // DESERT — sandy run, low rims, egypt ruins, mesa skyline
         {
             var root = new GameObject("TrackTile");
             var rng = new System.Random(seed);
@@ -1486,7 +1893,7 @@ namespace WarriorRun.EditorTools
                         new Vector3(side * (5.1f + (float)rng.NextDouble() * 1.2f), 0f, zi * 1.9f + (float)rng.NextDouble() * 0.9f), rng.Next(4) * 90);
                     if (r != null) { FitModel(r, targetY: 2.6f + (float)rng.NextDouble() * 1.8f); SnapToGround(r, 0.0f); }
                 }
-            // mid-field ruins — pyramids, obelisks, broken columns, cacti, boulders, camp leftovers
+            // mid-field ruins — obelisks, broken columns, cacti, boulders, camp leftovers
             for (int zi = 0; zi < 11; zi++)
                 foreach (var side in new[] { -1f, 1f })
                 {
@@ -1494,10 +1901,9 @@ namespace WarriorRun.EditorTools
                     double roll = rng.NextDouble();
                     if (roll < 0.24)
                     {
-                        BuildPyramid(root.transform,
-                            new Vector3(side * (7.2f + (float)rng.NextDouble() * 4.6f), 0f, z),
-                            2.4f + (float)rng.NextDouble() * 1.8f, 1.8f + (float)rng.NextDouble() * 1.3f,
-                            3 + rng.Next(2), rng.NextDouble() < 0.6f, (float)rng.NextDouble() * 90f);
+                        var m = KModel(CanyonCliffs[rng.Next(CanyonCliffs.Length)], root.transform,
+                            new Vector3(side * (7.2f + (float)rng.NextDouble() * 4.6f), 0f, z), rng.Next(360));
+                        if (m != null) { FitModel(m, targetY: 2.2f + (float)rng.NextDouble() * 1.8f); SnapToGround(m, 0.02f); }
                     }
                     else if (roll < 0.46)
                     {
@@ -1537,15 +1943,16 @@ namespace WarriorRun.EditorTools
                         BuildDune(root.transform,
                             new Vector3(side * (9.5f + (float)rng.NextDouble() * 6.5f), 0f, zi * 4f + (float)rng.NextDouble() * 2.5f),
                             2f + (float)rng.NextDouble() * 1.8f, (float)rng.NextDouble() * 360f);
-            // monument row — stepped pyramids and mesas marching behind the rims
+            // monument row — tall mesas and buttes marching behind the rims
             for (int zi = 0; zi < 4; zi++)
                 foreach (var side in new[] { -1f, 1f })
                 {
                     if (rng.NextDouble() < 0.8)
-                        BuildPyramid(root.transform,
-                            new Vector3(side * (13.5f + (float)rng.NextDouble() * 5f), 0f, zi * 6f + (float)rng.NextDouble() * 3f),
-                            6f + (float)rng.NextDouble() * 4f, 4.5f + (float)rng.NextDouble() * 3f,
-                            4 + rng.Next(2), true, rng.Next(4) * 45f);
+                    {
+                        var m = KModel(CanyonCliffs[rng.Next(CanyonCliffs.Length)], root.transform,
+                            new Vector3(side * (13.5f + (float)rng.NextDouble() * 5f), 0f, zi * 6f + (float)rng.NextDouble() * 3f), rng.Next(4) * 90);
+                        if (m != null) { FitModel(m, targetY: 6f + (float)rng.NextDouble() * 4.5f); SnapToGround(m, -0.1f); }
+                    }
                     if (rng.NextDouble() < 0.55)
                     {
                         var r2 = KModel(CanyonCliffs[rng.Next(CanyonCliffs.Length)], root.transform,
@@ -1553,14 +1960,15 @@ namespace WarriorRun.EditorTools
                         if (r2 != null) { FitModel(r2, targetY: 7.5f + (float)rng.NextDouble() * 3.5f); SnapToGround(r2, 0.0f); }
                     }
                 }
-            // horizon mega-pyramids — huge smooth shells that read through the fog
+            // horizon mega-mesas — huge flat-topped buttes that read through the fog
             for (int zi = 0; zi < 3; zi++)
                 foreach (var side in new[] { -1f, 1f })
                     if (rng.NextDouble() < 0.75)
-                        BuildPyramid(root.transform,
-                            new Vector3(side * (21f + (float)rng.NextDouble() * 9f), 0f, zi * 8f + (float)rng.NextDouble() * 5f),
-                            11f + (float)rng.NextDouble() * 7f, 8f + (float)rng.NextDouble() * 6f,
-                            1, rng.NextDouble() < 0.5f, rng.Next(4) * 45f);
+                    {
+                        var m = KModel(CanyonCliffs[rng.Next(CanyonCliffs.Length)], root.transform,
+                            new Vector3(side * (21f + (float)rng.NextDouble() * 9f), 0f, zi * 8f + (float)rng.NextDouble() * 5f), rng.Next(4) * 90);
+                        if (m != null) { FitModel(m, targetY: 10f + (float)rng.NextDouble() * 8f); SnapToGround(m, -0.2f); }
+                    }
             return SavePrefab(root, name);
         }
 
@@ -2443,47 +2851,6 @@ namespace WarriorRun.EditorTools
         // ---- egypt / desert dressing ----
 
         /// <summary>
-        /// Low-poly pyramid: stacked sandstone steps (steps&gt;1) or a smooth shell
-        /// (steps==1) with an optional gold pyramidion and a dark entrance slot.
-        /// Used both for decor prefabs and baked tile silhouettes.
-        /// </summary>
-        static void BuildPyramid(Transform parent, Vector3 pos, float baseSize, float height, int steps, bool goldCap, float rotY = 0f)
-        {
-            var root = new GameObject("Pyramid");
-            root.transform.SetParent(parent, false);
-            root.transform.localPosition = pos;
-            root.transform.localRotation = Quaternion.Euler(0f, rotY, 0f);
-
-            if (steps <= 1)
-            {
-                // smooth faces; cap base width matches the shell's cross-section at 82% height
-                MeshGO(pyramidMesh, "Body", mats["PyramidSand"], root.transform, Vector3.zero,
-                    new Vector3(baseSize * 0.7071f, height, baseSize * 0.7071f));
-                if (goldCap)
-                    MeshGO(pyramidMesh, "Cap", mats["GoldCap"], root.transform,
-                        new Vector3(0f, height * 0.82f, 0f),
-                        new Vector3(baseSize * 0.7071f * 0.18f, height * 0.18f, baseSize * 0.7071f * 0.18f));
-                return;
-            }
-
-            float stepH = height / (steps + 1.6f);
-            float topW = baseSize * 0.30f;
-            for (int i = 0; i < steps; i++)
-            {
-                float w = Mathf.Lerp(baseSize, topW, i / (float)(steps - 1));
-                Prim(PrimitiveType.Cube, "Step" + i, i % 2 == 0 ? mats["PyramidSand"] : mats["PyramidShade"],
-                    root.transform, new Vector3(0f, stepH * (i + 0.5f), 0f), new Vector3(w, stepH + 0.02f, w));
-            }
-            if (goldCap)
-                MeshGO(pyramidMesh, "Cap", mats["GoldCap"], root.transform,
-                    new Vector3(0f, steps * stepH - 0.01f, 0f),
-                    new Vector3(topW * 0.7071f, height - steps * stepH, topW * 0.7071f));
-            // entrance slot on the front face
-            Prim(PrimitiveType.Cube, "Door", mats["StoneDark"], root.transform,
-                new Vector3(0f, stepH * 0.75f, -baseSize * 0.5f - 0.02f),
-                new Vector3(baseSize * 0.16f, stepH * 1.3f, 0.06f));
-        }
-
         /// <summary>Tapered sandstone obelisk: plinth, two-stage shaft, gold tip, glyph strip.</summary>
         static void BuildObelisk(Transform parent, Vector3 pos, float targetH, float rotY = 0f)
         {
@@ -2525,13 +2892,6 @@ namespace WarriorRun.EditorTools
             g.transform.localRotation = Quaternion.Euler(0f, rotY, 0f);
             Prim(PrimitiveType.Sphere, "Hump", mats["SandDune"], g.transform, new Vector3(0f, -0.1f, 0f), new Vector3(r * 1.7f, r * 0.55f, r * 1.25f));
             Prim(PrimitiveType.Sphere, "Hump2", mats["SandDune"], g.transform, new Vector3(r * 0.55f, -0.16f, r * 0.3f), new Vector3(r, r * 0.34f, r * 0.8f));
-        }
-
-        static GameObject MakePyramidPrefab(string name, float baseSize, float height, int steps, bool cap)
-        {
-            var root = new GameObject(name);
-            BuildPyramid(root.transform, Vector3.zero, baseSize, height, steps, cap);
-            return SavePrefab(root, name);
         }
 
         static GameObject MakeObeliskPrefab()
@@ -2827,7 +3187,8 @@ namespace WarriorRun.EditorTools
             MakeAmbientMotes(world.transform); // firefly motes drift ahead of the runner
 
             // far ground plane under everything (horizon blend — TrackManager tints it per zone)
-            Prim(PrimitiveType.Cube, "FarGround", mats["FarGround"], world.transform, new Vector3(0, -0.62f, 60), new Vector3(240f, 0.2f, 400f));
+            // huge slab — it follows the runner so corners never reveal the void
+            Prim(PrimitiveType.Cube, "FarGround", mats["FarGround"], world.transform, new Vector3(0, -0.62f, 60), new Vector3(700f, 0.2f, 700f));
 
             // managers
             var gmGo = new GameObject("GameManager", typeof(GameManager));
@@ -2840,6 +3201,8 @@ namespace WarriorRun.EditorTools
             tm.wallBlockPrefab = prefabs["Wall"];
             tm.spikePrefab = prefabs["Spike"];
             tm.coinPrefab = prefabs["Coin"];
+            tm.turnLeftPrefab = prefabs["Tile_TurnL"];
+            tm.turnRightPrefab = prefabs["Tile_TurnR"];
             tm.powerUpPrefabs = new[] { prefabs["PU_Magnet"], prefabs["PU_Shield"], prefabs["PU_Boost"], prefabs["PU_Car"], prefabs["PU_Plane"] };
             tm.decorPrefabs = new[] { prefabs["D_Pillar"], prefabs["D_Pillar2"], prefabs["D_Column"], prefabs["D_Rubble"], prefabs["D_Barrel"], prefabs["D_Keg"], prefabs["D_Chest"] };
             tm.wallFeaturePrefabs = new[] { prefabs["WF_Torch"], prefabs["WF_Banner"], prefabs["WF_BannerBig"], prefabs["WF_Crest"] };
@@ -2872,16 +3235,29 @@ namespace WarriorRun.EditorTools
                     decorXMin = 5.9f, decorXMax = 15f, decorCount = 11, featureCount = 4,
                     fogColor = Hex("#E3C188"),
                 },
-                new TrackManager.Zone // sun-bleached desert — pyramids, obelisks, ruins and dunes
+                new TrackManager.Zone // sun-bleached desert — mesas, obelisks, ruins and dunes
                 {
                     name = "Canyon",
                     tilePrefab = prefabs["Tile_Canyon_A"],
                     tilePrefabs = new[] { prefabs["Tile_Canyon_A"], prefabs["Tile_Canyon_B"] },
-                    decorPrefabs = new[] { prefabs["D_Pyramid"], prefabs["D_PyramidBig"], prefabs["D_Obelisk"], prefabs["D_RuinCol"], prefabs["D_Dune"], prefabs["K_Cactus"], prefabs["K_CactusS"], prefabs["K_Camp"], prefabs["Q_RockD"], prefabs["Q_RockD2"], prefabs["K_Cliff"], prefabs["K_CliffTop"] },
+                    decorPrefabs = new[] { prefabs["D_Obelisk"], prefabs["D_RuinCol"], prefabs["D_Dune"], prefabs["K_Cactus"], prefabs["K_CactusS"], prefabs["K_Camp"], prefabs["Q_RockD"], prefabs["Q_RockD2"], prefabs["K_Cliff"], prefabs["K_CliffTop"], prefabs["D_Obelisk"], prefabs["D_RuinCol"] },
                     obstaclePrefabs = new[] { prefabs["N_RockJump"], prefabs["N_CactusBlock"], prefabs["N_RockBlock"], prefabs["N_RockJump"], prefabs["N_CactusBlock"] },
                     featurePrefabs = null,
                     decorXMin = 5.8f, decorXMax = 17f, decorCount = 12, featureCount = 0,
                     fogColor = Hex("#E8BE8E"),
+                },
+                new TrackManager.Zone // volcanic chasm — single narrow basalt lane, lava on both flanks
+                {
+                    name = "Volcano",
+                    tilePrefab = prefabs["Tile_Lava_A"],
+                    tilePrefabs = new[] { prefabs["Tile_Lava_A"], prefabs["Tile_Lava_B"] },
+                    decorPrefabs = new[] { prefabs["Q_RockD"], prefabs["D_Rubble"], prefabs["Q_Dead"], prefabs["Q_Dead2"], prefabs["K_Cliff"], prefabs["N_DeadFall"] },
+                    // one lane means no lane to dodge into — only jump-overs belong here
+                    obstaclePrefabs = new[] { prefabs["N_RockJump"], prefabs["N_LogBar"], prefabs["N_RockJump"], prefabs["N_LogBar"] },
+                    featurePrefabs = null,
+                    decorXMin = 13.5f, decorXMax = 17.5f, decorCount = 7, featureCount = 0,
+                    fogColor = Hex("#5A2E1E"),
+                    singleLane = true,
                 },
                 new TrackManager.Zone // downtown strip — buildings baked in, props on the sidewalks
                 {
@@ -3128,6 +3504,28 @@ namespace WarriorRun.EditorTools
             scSh.effectColor = new Color(0.08f, 0.11f, 0.16f, 0.85f);
             scSh.effectDistance = new Vector2(0f, -5f);
 
+            // turn warning — "»" chevrons that flash while a corner is in swipe
+            // range; the container flips X for left turns and pulses until taken
+            var arrow = new GameObject("TurnArrow", typeof(RectTransform));
+            RT(arrow, hud.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 0.5f),
+                new Vector2(0, -200), new Vector2(220, 120));
+            arrow.SetActive(false);
+            arrow.AddComponent<CanvasGroup>();
+            arrow.AddComponent<Pulse>();
+            var chevs = new List<Image>();
+            for (int i = 0; i < 2; i++)
+            {
+                var cg = new GameObject("Chev" + i, typeof(RectTransform));
+                RT(cg, arrow.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                    new Vector2(-34 + i * 68, 0), new Vector2(84, 84));
+                var img = cg.AddComponent<Image>();
+                img.sprite = chevSpr;
+                img.color = new Color(1f, 0.72f, 0.24f);
+                chevs.Add(img);
+            }
+            ui.turnArrow = (RectTransform)arrow.transform;
+            ui.turnChevrons = chevs.ToArray();
+
             // coin chip top-left: pill + icon + count
             var chip = new GameObject("CoinChip", typeof(RectTransform));
             RT(chip, hud.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(28, -36), new Vector2(190, 76));
@@ -3164,6 +3562,8 @@ namespace WarriorRun.EditorTools
                 Vector2.zero, new Vector2(900, 50), 32, TextAlignmentOptions.Center, new Color(1, 1, 1, 0.8f), FontStyles.Normal, 2f);
             Text("UP  TO  JUMP   •   DOWN  TO  SLIDE", ready.transform, new Vector2(0.5f, 0.46f), new Vector2(0.5f, 0.46f), new Vector2(0.5f, 0.5f),
                 Vector2.zero, new Vector2(900, 50), 32, TextAlignmentOptions.Center, new Color(1, 1, 1, 0.8f), FontStyles.Normal, 2f);
+            Text("SWIPE THE ARROW WAY AT JUNCTIONS", ready.transform, new Vector2(0.5f, 0.42f), new Vector2(0.5f, 0.42f), new Vector2(0.5f, 0.5f),
+                Vector2.zero, new Vector2(900, 50), 32, TextAlignmentOptions.Center, ColUIAccent, FontStyles.Normal, 2f);
             ui.readyBestText = Text("BEST  0", ready.transform, new Vector2(0.5f, 0.36f), new Vector2(0.5f, 0.36f), new Vector2(0.5f, 0.5f),
                 Vector2.zero, new Vector2(600, 60), 40, TextAlignmentOptions.Center, ColUIAccent, FontStyles.Bold, 4f);
 

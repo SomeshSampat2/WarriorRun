@@ -48,6 +48,8 @@ namespace WarriorRun.Player
         [SerializeField] float landDip = 0.72f;
         [SerializeField] float strafeHold = 0.42f;
         [SerializeField] float slideSpeed = 0.62f;
+        [SerializeField] float turnYawDeg = 24f;   // torso twists toward the exit mid-corner
+        [SerializeField] float turnLeanDeg = 14f;  // body banks into the bend
 
         const int S_Idle = 0, S_Run = 1, S_Jump = 2, S_Air = 3, S_Land = 4,
                   S_Slide = 5, S_DodgeL = 6, S_DodgeR = 7, S_Death = 8,
@@ -72,6 +74,7 @@ namespace WarriorRun.Player
         float landTimer;
         float rollZ, targetRoll;
         float leanX;
+        float turnYaw, turnRoll;
         float squash = 1f;
         bool wasGrounded = true;
 
@@ -292,8 +295,15 @@ namespace WarriorRun.Player
             rollZ = Mathf.Lerp(rollZ, targetRoll, 11f * dt);
             targetRoll = Mathf.Lerp(targetRoll, 0f, 7f * dt);
 
+            // corner body language — shoulders lead the exit while the hips
+            // bank into the bend; both relax back to zero on the straight
+            bool turningNow = pc != null && pc.IsTurning;
+            int tdir = pc != null ? pc.TurnDir : 0;
+            turnYaw = Mathf.Lerp(turnYaw, turningNow ? tdir * turnYawDeg : 0f, 7f * dt);
+            turnRoll = Mathf.Lerp(turnRoll, turningNow ? -tdir * turnLeanDeg : 0f, 7f * dt);
+
             if (leanPivot != null)
-                leanPivot.localEulerAngles = new Vector3(leanX, 0f, rollZ);
+                leanPivot.localEulerAngles = new Vector3(leanX, turnYaw, rollZ + turnRoll);
 
             squash = Mathf.Lerp(squash, 1f, 11f * dt);
             if (squashPivot != null)
