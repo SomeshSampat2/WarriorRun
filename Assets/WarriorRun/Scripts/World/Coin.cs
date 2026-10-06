@@ -9,6 +9,8 @@ namespace WarriorRun.World
         [SerializeField] float spinSpeed = 240f;
         [SerializeField] float bobAmount = 0.12f;
         [SerializeField] float bobSpeed = 2.4f;
+        public int value = 1;          // gems bump this — coins worth more than one
+        public float spinMul = 1f;     // gems spin faster, reads as "rarer"
         public GameObject burstPrefab;
 
         float baseY;
@@ -28,7 +30,7 @@ namespace WarriorRun.World
 
         void Update()
         {
-            transform.Rotate(0f, spinSpeed * Time.deltaTime, 0f, Space.World);
+            transform.Rotate(0f, spinSpeed * spinMul * Time.deltaTime, 0f, Space.World);
             var p = transform.position;
             p.y = baseY + Mathf.Sin(Time.time * bobSpeed + phase) * bobAmount;
             transform.position = p;
@@ -43,7 +45,7 @@ namespace WarriorRun.World
                     transform.position = Vector3.MoveTowards(transform.position, target, 17f * Time.deltaTime);
                     if ((transform.position - target).sqrMagnitude < 0.7f)
                     {
-                        gm.AddCoin();
+                        gm.AddCoin(value);
                         Collect();
                     }
                 }

@@ -70,6 +70,8 @@ MonoBehaviour:
   spinSpeed: 240
   bobAmount: 0.12
   bobSpeed: 2.4
+  value: 1
+  spinMul: 1
   burstPrefab: {fileID: 4251081882795967987, guid: c92e8948d077e42c0909636bc6ce1e29, type: 3}
 --- !u!1001 &7832192972261900113
 PrefabInstance:

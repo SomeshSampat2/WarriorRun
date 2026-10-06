@@ -62,6 +62,19 @@ far more colourful.)*
   never walls twice in a row, and a shared wildcard pool mixes surprises into
   every zone
 - Coins, power-ups, score chasing — runs until you crash
+- **Eight power-ups** — Magnet (coins fly to you), Shield (one-hit bubble),
+  Boost (speed + plows through blockers), **Ghost** (phase straight through
+  obstacles), **Spring Boots** (higher, floatier jumps), **Giant Mode** (grow
+  ~2× and stomp-smash everything), plus **Car** and **Plane** vehicle
+  takeovers — each with its own Blender-built pickup model and a HUD chip
+  with a radial countdown that strobes before expiring
+- **Gem pickups** — rare emeralds worth 10 coins; they spin faster, chime
+  differently and burst in emerald sparks
+- **Double jump** — swipe up again mid-air for a frontflip stunt hop
+- Run-feel VFX — airborne heel trails, boost foot-flames + fading afterimage
+  silhouettes, a pulsing shield dome that shatters into shards, a gyro-ring
+  magnet aura with sparks spiralling into the runner, and camera-thumping
+  giant footfalls
 - Random background music: a pool of hip-hop beat loops (plus title track) —
   a different track every run, never the same one twice in a row
 - Menu diorama with animated scenery, parallax, and ambient audio

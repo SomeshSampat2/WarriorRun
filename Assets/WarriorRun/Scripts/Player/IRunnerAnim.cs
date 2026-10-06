@@ -8,6 +8,7 @@ namespace WarriorRun.Player
     {
         void OnRunStart();
         void OnJump();
+        void OnDoubleJump();
         void OnSlide(bool on);
         void OnLaneSwitch(int dir);
         void OnLand();

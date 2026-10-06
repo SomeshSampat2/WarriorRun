@@ -27,6 +27,12 @@ namespace WarriorRun.Core
         [SerializeField] float magnetDuration = 16f;
         [SerializeField] float boostDuration = 12f;
         [SerializeField] float boostSpeedAdd = 7f;
+        [SerializeField] float ghostDuration = 7f;
+        [SerializeField] float springDuration = 11f;
+        [SerializeField] float giantDuration = 9f;
+        [SerializeField] float springJumpMult = 1.55f;
+        [SerializeField] float springGravityMult = 0.72f;
+        [SerializeField] float warnTime = 2.2f; // HUD/aura flicker window before expiry
 
         [Header("Vehicles")]
         [SerializeField] float carDuration = 10f;
@@ -50,6 +56,15 @@ namespace WarriorRun.Core
         public bool ShieldActive { get; private set; }
         public bool MagnetActive => Time.time < MagnetUntil;
         public bool BoostActive => Time.time < BoostUntil;
+
+        public float GhostUntil { get; private set; }
+        public float SpringUntil { get; private set; }
+        public float GiantUntil { get; private set; }
+        public bool GhostActive => Time.time < GhostUntil;
+        public bool SpringActive => Time.time < SpringUntil;
+        public bool GiantActive => Time.time < GiantUntil;
+        public float JumpMult => SpringActive ? springJumpMult : 1f;
+        public float GravityMult => SpringActive ? springGravityMult : 1f;
 
         public float CarUntil { get; private set; }
         public float PlaneUntil { get; private set; }
@@ -150,11 +165,22 @@ namespace WarriorRun.Core
                 // vehicles are exclusive — grabbing one drops the other
                 case WarriorRun.World.PowerUpKind.Car:   CarUntil = Time.time + carDuration;     PlaneUntil = 0f; SetVehicleTint(tintA, tintB); break;
                 case WarriorRun.World.PowerUpKind.Plane: PlaneUntil = Time.time + planeDuration; CarUntil = 0f;   SetVehicleTint(tintA, tintB); break;
+                case WarriorRun.World.PowerUpKind.Ghost:  GhostUntil = Time.time + ghostDuration;   break;
+                case WarriorRun.World.PowerUpKind.Spring: SpringUntil = Time.time + springDuration; break;
+                case WarriorRun.World.PowerUpKind.Giant:  GiantUntil = Time.time + giantDuration;   break;
             }
             PowerUpChanged?.Invoke(kind);
-            // vehicles play their own engine stinger instead of the generic chime
-            if (kind != WarriorRun.World.PowerUpKind.Car && kind != WarriorRun.World.PowerUpKind.Plane)
-                AudioManager.Instance?.Play(Sfx.PowerUp);
+            // vehicles play their own engine stinger; the newer pickups each
+            // have a voice of their own — everything else gets the chime
+            switch (kind)
+            {
+                case WarriorRun.World.PowerUpKind.Car:
+                case WarriorRun.World.PowerUpKind.Plane: break;
+                case WarriorRun.World.PowerUpKind.Ghost:  AudioManager.Instance?.Play(Sfx.Ghost);  break;
+                case WarriorRun.World.PowerUpKind.Spring: AudioManager.Instance?.Play(Sfx.Spring); break;
+                case WarriorRun.World.PowerUpKind.Giant:  AudioManager.Instance?.Play(Sfx.Stomp);  break;
+                default: AudioManager.Instance?.Play(Sfx.PowerUp); break;
+            }
         }
 
         void SetVehicleTint(Color? a, Color? b)
@@ -168,7 +194,7 @@ namespace WarriorRun.Core
         public bool TryCrash()
         {
             if (State != RunState.Running) return false;
-            if (BoostActive || VehicleActive) return false; // boost & vehicles plow through everything
+            if (BoostActive || VehicleActive || GiantActive) return false; // boost/giant/vehicles plow through
             if (Time.time < airGraceUntil) return false;    // still settling after a flight
             if (ShieldActive)
             {
@@ -181,12 +207,70 @@ namespace WarriorRun.Core
             return true;
         }
 
-        public void AddCoin()
+        public void AddCoin(int count = 1)
         {
             if (State != RunState.Running) return;
-            Coins++;
+            Coins += count;
             ScoreChanged?.Invoke();
-            AudioManager.Instance?.Play(Sfx.Coin);
+            AudioManager.Instance?.Play(count > 1 ? Sfx.Gem : Sfx.Coin);
+        }
+
+        // ---- powerup HUD/FX queries ----
+
+        /// <summary>Seconds left on a timed powerup; Shield reports 1 while held.</summary>
+        public float PowerUpRemaining(World.PowerUpKind k)
+        {
+            switch (k)
+            {
+                case World.PowerUpKind.Magnet: return Mathf.Max(0f, MagnetUntil - Time.time);
+                case World.PowerUpKind.Boost:  return Mathf.Max(0f, BoostUntil - Time.time);
+                case World.PowerUpKind.Ghost:  return Mathf.Max(0f, GhostUntil - Time.time);
+                case World.PowerUpKind.Spring: return Mathf.Max(0f, SpringUntil - Time.time);
+                case World.PowerUpKind.Giant:  return Mathf.Max(0f, GiantUntil - Time.time);
+                case World.PowerUpKind.Car:    return Mathf.Max(0f, CarUntil - Time.time);
+                case World.PowerUpKind.Plane:  return Mathf.Max(0f, PlaneUntil - Time.time);
+                case World.PowerUpKind.Shield: return ShieldActive ? 1f : 0f;
+                default: return 0f;
+            }
+        }
+
+        /// <summary>Remaining time as a 0..1 slice of the original duration.</summary>
+        public float PowerUpFraction(World.PowerUpKind k)
+        {
+            float dur;
+            switch (k)
+            {
+                case World.PowerUpKind.Magnet: dur = magnetDuration; break;
+                case World.PowerUpKind.Boost:  dur = boostDuration; break;
+                case World.PowerUpKind.Ghost:  dur = ghostDuration; break;
+                case World.PowerUpKind.Spring: dur = springDuration; break;
+                case World.PowerUpKind.Giant:  dur = giantDuration; break;
+                case World.PowerUpKind.Car:    dur = carDuration; break;
+                case World.PowerUpKind.Plane:  dur = planeDuration; break;
+                case World.PowerUpKind.Shield: return ShieldActive ? 1f : 0f;
+                default: return 0f;
+            }
+            return Mathf.Clamp01(PowerUpRemaining(k) / dur);
+        }
+
+        /// <summary>Inside the flicker window — the powerup is about to lapse.</summary>
+        public bool PowerUpWarning(World.PowerUpKind k)
+            => k != World.PowerUpKind.Shield && IsPowerUpActive(k) && PowerUpRemaining(k) <= warnTime;
+
+        public bool IsPowerUpActive(World.PowerUpKind k)
+        {
+            switch (k)
+            {
+                case World.PowerUpKind.Magnet: return MagnetActive;
+                case World.PowerUpKind.Boost:  return BoostActive;
+                case World.PowerUpKind.Ghost:  return GhostActive;
+                case World.PowerUpKind.Spring: return SpringActive;
+                case World.PowerUpKind.Giant:  return GiantActive;
+                case World.PowerUpKind.Car:    return CarActive;
+                case World.PowerUpKind.Plane:  return PlaneActive;
+                case World.PowerUpKind.Shield: return ShieldActive;
+                default: return false;
+            }
         }
 
         public void Die()
