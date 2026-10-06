@@ -91,6 +91,22 @@ namespace WarriorRun.EditorTools
             WarriorRunBuilder.BuildAndroid();
         }
 
+        /// <summary>
+        /// Full pipeline: regenerate every prefab + scene from scratch (needed
+        /// when builder-side content changes — e.g. turn-junction tiles), then
+        /// restyle, re-apply extra content, validate and build the APK.
+        ///   -executeMethod WarriorRun.EditorTools.StylizedUpgrade.FullRebuildAndroid
+        /// </summary>
+        [MenuItem("WarriorRun/Full Rebuild + Android APK")]
+        public static void FullRebuildAndroid()
+        {
+            WarriorRunBuilder.Build();
+            Run();
+            ExtraContent.Apply();
+            ValidatePrefabs();
+            WarriorRunBuilder.BuildAndroid();
+        }
+
         /// <summary>After the glTF re-export every prop prefab should still carry
         /// renderers with a sane world-space footprint. Logs any prefab whose
         /// visuals went missing or collapsed (broken instance overrides).</summary>

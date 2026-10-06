@@ -100,9 +100,10 @@ namespace WarriorRun.Core
             if (planeWasActive && !PlaneActive) airGraceUntil = Time.time + planeLandGrace;
             planeWasActive = PlaneActive;
 
-            if (player != null)
+            // path distance — the runner always advances exactly speed*dt along
+            // the spine (straights and corner arcs alike), so accumulate it
+            Distance += CurrentSpeed * Time.deltaTime;
             {
-                Distance = Mathf.Max(0f, player.position.z);
                 int newScore = Mathf.FloorToInt(Distance) + Coins * coinScoreValue;
                 if (newScore != Score)
                 {
@@ -117,6 +118,7 @@ namespace WarriorRun.Core
             if (State != RunState.Ready) return;
             baseSpeed = startSpeed;
             CurrentSpeed = startSpeed;
+            Distance = 0f;
             SetState(RunState.Running);
             if (player != null)
                 player.GetComponentInChildren<WarriorRun.Player.IRunnerAnim>()?.OnRunStart();

@@ -5,8 +5,11 @@ using WarriorRun.Core;
 namespace WarriorRun.World
 {
     /// <summary>
-    /// Recycles a fixed window of track tiles ahead of the player, populating
-    /// each with a seeded pattern of obstacles, coins and side decor.
+    /// Recycles a fixed window of track tiles ahead of the player along a
+    /// wandering path — straight runs punctuated by 90° corner junctions the
+    /// player swipes to take (Temple Run style). Tiles are positioned by a
+    /// path cursor (position + heading); everything spawned on a tile is
+    /// placed in the tile's LOCAL frame so the whole world bends with it.
     /// At least one lane is always guaranteed free of blocking obstacles.
     /// </summary>
     public class TrackManager : MonoBehaviour
@@ -24,6 +27,8 @@ namespace WarriorRun.World
         public GameObject wallBlockPrefab;
         public GameObject spikePrefab;
         public GameObject coinPrefab;
+        public GameObject turnLeftPrefab;
+        public GameObject turnRightPrefab;
         public GameObject[] powerUpPrefabs;   // magnet / shield / boost pickups
         public GameObject[] decorPrefabs;   // ruins props beyond the walls
         public GameObject[] wallFeaturePrefabs; // banners/torches/crests on the wall face
@@ -35,6 +40,13 @@ namespace WarriorRun.World
         [SerializeField] float fogLerpSpeed = 0.35f;
         [SerializeField] float farGroundDim = 0.62f; // far slab tinted toward the zone's horizon
 
+        [Header("Turns")]
+        [SerializeField] int firstTurnTile = 8;    // opening stretch stays straight
+        [SerializeField] int minTurnGap = 4;       // straight tiles between corners
+        [SerializeField] int maxTurnGap = 9;
+        [SerializeField] float doubleTurnChance = 0.14f; // chance of an immediate second corner (S-bend)
+        public float turnRadius = 4.6f;            // arc the player follows mid-corner
+
         [Header("Difficulty")]
         [SerializeField] int safeTiles = 2;
         [SerializeField] float baseObstacleChance = 0.18f;
@@ -42,11 +54,40 @@ namespace WarriorRun.World
         [SerializeField] float coinRowChance = 0.55f;
         [SerializeField] float powerUpChance = 0.07f;
 
+        /// <summary>A corner the runner is approaching — read by PlayerController.</summary>
+        public struct TurnPlan
+        {
+            public Vector3 arcStart;   // world point where the bend begins
+            public Vector3 exitPoint;  // where the straight resumes, on the new heading
+            public float yawIn, yawOut;
+            public int dir;            // +1 = right, -1 = left
+            public float radius;
+        }
+
+        /// <summary>One spawned tile's slice of the path, for distance→world sampling.</summary>
+        struct PathLeg
+        {
+            public Vector3 start, end;          // entry / exit edge centres
+            public float yawIn, yawOut;
+            public bool corner;
+            public int dir;
+            public float dist0, len;            // path-distance span covered
+            public Vector3 arcStart, exitPoint; // corner geometry (corners only)
+        }
+
         readonly LinkedList<GameObject> liveTiles = new();
+        readonly LinkedList<TurnPlan> turns = new();
+        readonly List<PathLeg> legs = new();   // kept 1:1 with liveTiles
         readonly Dictionary<GameObject, Queue<GameObject>> pools = new();
 
         Transform player;
-        float nextTileZ;
+        Transform farGround;
+        float farGroundY;
+        Vector3 cursorPos;    // next tile's entry-edge centre
+        float cursorYaw;      // heading (deg) at the entry edge
+        float spawnDist;      // path distance spawned so far
+        int sinceTurn;
+        int nextTurnGap;
         int tileIndex;
         int runSeed;
         int[] zoneOrder;
@@ -70,6 +111,7 @@ namespace WarriorRun.World
             public int featureCount = 2;
             public Color fogColor = new Color(0.84f, 0.90f, 0.88f);
             public GameObject[] obstaclePrefabs;  // zone-flavoured obstacles; null = default pool
+            public bool singleLane;             // one centre lane only — no left/right (lava chasm)
         }
 
         Zone CurrentZone
@@ -81,14 +123,24 @@ namespace WarriorRun.World
             }
         }
 
+        static Vector3 Heading(float yawDeg)
+        {
+            float r = yawDeg * Mathf.Deg2Rad;
+            return new Vector3(Mathf.Sin(r), 0f, Mathf.Cos(r));
+        }
+
         void Start()
         {
             var pc = FindFirstObjectByType<Player.PlayerController>();
             player = pc != null ? pc.transform : null;
             runSeed = Random.Range(0, int.MaxValue);
-            nextTileZ = -tileLength; // one tile behind the start line
+            cursorPos = new Vector3(0f, 0f, -tileLength); // one tile behind the start line
+            cursorYaw = 0f;
+            spawnDist = -tileLength;
             tileIndex = 0;
             zoneIdx = 0;
+            sinceTurn = 0;
+            nextTurnGap = Random.Range(minTurnGap, maxTurnGap + 1);
             // shuffle zone order per run — different journey each time, temple first
             if (zones != null && zones.Length > 0)
             {
@@ -100,13 +152,25 @@ namespace WarriorRun.World
                     int j = Random.Range(1, i + 1);
                     (zoneOrder[i], zoneOrder[j]) = (zoneOrder[j], zoneOrder[i]);
                 }
+                // the lava chasm is the signature biome — pin it third in the
+                // rotation so every run reaches it within ~700 m instead of
+                // possibly waiting through a full ten-zone shuffle
+                if (zoneOrder.Length > 2)
+                    for (int i = 0; i < zones.Length; i++)
+                        if (zones[i] != null && zones[i].name == "Volcano" && zoneOrder[2] != i)
+                        {
+                            int at = System.Array.IndexOf(zoneOrder, i);
+                            if (at > 2) (zoneOrder[at], zoneOrder[2]) = (zoneOrder[2], zoneOrder[at]);
+                            break;
+                        }
                 fogTarget = zones[0].fogColor;
             }
-            // the distant fallback slab is tinted per-zone so no blank void
-            // shows past the tile beds while running between biomes
-            var fg = GameObject.Find("FarGround");
-            var fr = fg != null ? fg.GetComponent<Renderer>() : null;
+            // the distant fallback slab is tinted per-zone and follows the
+            // runner so no blank void shows past the tile beds after a corner
+            farGround = GameObject.Find("FarGround")?.transform;
+            var fr = farGround != null ? farGround.GetComponent<Renderer>() : null;
             if (fr != null) farGroundMat = fr.material; // instantiates a private copy
+            if (farGround != null) farGroundY = farGround.position.y;
             Prewarm();
         }
 
@@ -125,6 +189,8 @@ namespace WarriorRun.World
             void AddMany(GameObject[] arr, int n) { if (arr != null) foreach (var p in arr) Add(p, n); }
 
             Add(tilePrefab, 2);
+            Add(turnLeftPrefab, 1);
+            Add(turnRightPrefab, 1);
             Add(coinPrefab, 14);
             Add(spikePrefab, 3);
             Add(lowBarrierPrefab, 3);
@@ -156,17 +222,40 @@ namespace WarriorRun.World
             }
         }
 
+        float PlayerDist => GameManager.Instance != null ? GameManager.Instance.Distance : 0f;
+
+        /// <summary>The biome under the runner right now — drives per-zone lane rules.</summary>
+        public Zone PlayerZone
+        {
+            get
+            {
+                float pd = PlayerDist;
+                foreach (var t in liveTiles)
+                {
+                    var c = t.GetComponent<TrackChunk>();
+                    if (c != null && c.endDist > pd) return c.zone;
+                }
+                return null;
+            }
+        }
+
+        /// <summary>True while the runner is inside a one-lane zone (lava chasm).</summary>
+        public bool PlayerSingleLane => PlayerZone != null && PlayerZone.singleLane;
+
         void Update()
         {
             if (player == null) return;
-            float pz = player.position.z;
+            float pd = PlayerDist;
 
-            while (nextTileZ < pz + tilesAhead * tileLength)
+            while (spawnDist < pd + tilesAhead * tileLength)
                 SpawnTile();
 
-            while (liveTiles.Count > 0 &&
-                   liveTiles.First.Value.transform.position.z + tileLength < pz - despawnBehind)
+            while (liveTiles.Count > 0)
+            {
+                var c = liveTiles.First.Value.GetComponent<TrackChunk>();
+                if (c == null || c.endDist >= pd - despawnBehind) break;
                 RecycleOldest();
+            }
 
             // ease the fog toward the active zone's mood
             var z = CurrentZone;
@@ -180,11 +269,105 @@ namespace WarriorRun.World
                         Color.Lerp(farGroundMat.GetColor("_BaseColor"), z.fogColor * farGroundDim,
                             Time.deltaTime * fogLerpSpeed));
             }
+
+            if (farGround != null)
+                farGround.position = new Vector3(player.position.x, farGroundY, player.position.z);
         }
+
+        // ---- path helpers ----
+
+        /// <summary>The next unconsumed corner on the path, if any.</summary>
+        public bool PeekTurn(out TurnPlan plan)
+        {
+            if (turns.Count > 0)
+            {
+                plan = turns.First.Value;
+                return true;
+            }
+            plan = default;
+            return false;
+        }
+
+        /// <summary>The player took (or blew past) the front corner — pop it.</summary>
+        public void ConsumeTurn()
+        {
+            if (turns.Count > 0) turns.RemoveFirst();
+        }
+
+        /// <summary>Missed-corner bookkeeping — same pop, clearer call site.</summary>
+        public void SkipTurn() => ConsumeTurn();
+
+        /// <summary>
+        /// World position + tangent at a path distance (meters along the spine
+        /// from the run start). Past the spawned window it extrapolates the
+        /// final leg, so it is always safe to call for "ahead" distances.
+        /// </summary>
+        public bool SamplePath(float dist, out Vector3 pos, out Vector3 tangent)
+        {
+            pos = Vector3.zero;
+            tangent = Vector3.forward;
+            if (legs.Count == 0) return false;
+
+            int i = 0;
+            while (i < legs.Count - 1 && dist >= legs[i].dist0 + legs[i].len) i++;
+            var l = legs[i];
+            float s = dist - l.dist0;
+            Vector3 dirIn = Heading(l.yawIn);
+            Vector3 dirOut = Heading(l.yawOut);
+
+            if (!l.corner)
+            {
+                tangent = dirIn;
+                pos = l.start + dirIn * s;
+                return true;
+            }
+
+            float half = tileLength * 0.5f;
+            float sIn = half - turnRadius;               // straight lead-in
+            float arcLen = turnRadius * Mathf.PI * 0.5f; // quarter arc
+            if (s <= sIn)
+            {
+                tangent = dirIn;
+                pos = l.start + dirIn * s;
+            }
+            else if (s <= sIn + arcLen)
+            {
+                float phi = (s - sIn) / turnRadius;
+                Vector3 centre = l.arcStart + dirOut * turnRadius;
+                pos = centre + turnRadius * (dirIn * Mathf.Sin(phi) - dirOut * Mathf.Cos(phi));
+                tangent = dirIn * Mathf.Cos(phi) + dirOut * Mathf.Sin(phi);
+            }
+            else
+            {
+                tangent = dirOut;
+                pos = l.exitPoint + dirOut * (s - sIn - arcLen);
+            }
+            return true;
+        }
+
+        // ---- spawning ----
 
         void SpawnTile()
         {
             var zone = CurrentZone;
+            bool corner = turnLeftPrefab != null && turnRightPrefab != null
+                          && tileIndex >= firstTurnTile && sinceTurn >= nextTurnGap;
+            if (corner)
+                SpawnCorner(Random.value < 0.5f ? -1 : 1, zone);
+            else
+                SpawnStraight(zone);
+        }
+
+        TrackChunk GetChunk(GameObject tile)
+        {
+            var chunk = tile.GetComponent<TrackChunk>();
+            if (chunk == null) chunk = tile.AddComponent<TrackChunk>();
+            chunk.Clear();
+            return chunk;
+        }
+
+        void SpawnStraight(Zone zone)
+        {
             var prefab = tilePrefab;
             if (zone != null)
             {
@@ -194,19 +377,88 @@ namespace WarriorRun.World
                     prefab = zone.tilePrefab;
             }
             var tile = GetFromPool(prefab);
-            tile.transform.position = new Vector3(0f, 0f, nextTileZ);
+            tile.transform.SetPositionAndRotation(cursorPos, Quaternion.Euler(0f, cursorYaw, 0f));
             tile.SetActive(true);
 
-            var chunk = tile.GetComponent<TrackChunk>();
-            if (chunk == null) chunk = tile.AddComponent<TrackChunk>();
-            chunk.Clear();
+            var chunk = GetChunk(tile);
+            chunk.endDist = spawnDist + tileLength;
+            chunk.zone = zone;
+            legs.Add(new PathLeg
+            {
+                start = cursorPos, end = cursorPos + Heading(cursorYaw) * tileLength,
+                yawIn = cursorYaw, yawOut = cursorYaw,
+                dist0 = spawnDist, len = tileLength,
+            });
 
             var rng = new System.Random(runSeed + tileIndex);
-            Populate(tile.transform, tileIndex, rng, chunk, zone);
+            // the tile right before a junction keeps the approach readable —
+            // soften its obstacle odds so a blocker can't hide the corner
+            bool cornerNext = turnLeftPrefab != null && turnRightPrefab != null
+                              && tileIndex + 1 >= firstTurnTile && sinceTurn + 1 >= nextTurnGap;
+            Populate(tile.transform, tileIndex, rng, chunk, zone, cornerNext);
 
             liveTiles.AddLast(tile);
-            nextTileZ += tileLength;
+            cursorPos += Heading(cursorYaw) * tileLength;
+            spawnDist += tileLength;
             tileIndex++;
+            sinceTurn++;
+            zoneIdx = tileIndex / tilesPerZone;
+        }
+
+        void SpawnCorner(int dir, Zone zone)
+        {
+            var prefab = dir > 0 ? turnRightPrefab : turnLeftPrefab;
+            var tile = GetFromPool(prefab);
+            tile.transform.SetPositionAndRotation(cursorPos, Quaternion.Euler(0f, cursorYaw, 0f));
+            tile.SetActive(true);
+
+            // the dead-end kill trigger is baked in — a shield/vehicle smash
+            // disables it, so re-arm it every time the junction is reused
+            var de = tile.transform.Find("DeadEnd");
+            if (de != null) de.gameObject.SetActive(true);
+
+            float half = tileLength * 0.5f;
+            float yawIn = cursorYaw;
+            float yawOut = cursorYaw + 90f * dir;
+            Vector3 dirIn = Heading(yawIn);
+            Vector3 dirOut = Heading(yawOut);
+            Vector3 centre = cursorPos + dirIn * half;
+            Vector3 arcStart = centre - dirIn * turnRadius;
+            Vector3 exitPoint = centre + dirOut * turnRadius;
+            Vector3 exitEdge = centre + dirOut * half;
+
+            var plan = new TurnPlan
+            {
+                arcStart = arcStart, exitPoint = exitPoint,
+                yawIn = yawIn, yawOut = yawOut,
+                dir = dir, radius = turnRadius,
+            };
+            turns.AddLast(plan);
+
+            float len = 2f * (half - turnRadius) + turnRadius * Mathf.PI * 0.5f;
+            legs.Add(new PathLeg
+            {
+                start = cursorPos, end = exitEdge,
+                yawIn = yawIn, yawOut = yawOut,
+                corner = true, dir = dir,
+                dist0 = spawnDist, len = len,
+                arcStart = arcStart, exitPoint = exitPoint,
+            });
+
+            var chunk = GetChunk(tile);
+            chunk.endDist = spawnDist + len;
+            chunk.zone = zone;
+            PopulateCorner(tile.transform, plan, new System.Random(runSeed + tileIndex), chunk, zone);
+
+            liveTiles.AddLast(tile);
+            cursorPos = exitEdge;
+            cursorYaw = yawOut;
+            spawnDist += len;
+            tileIndex++;
+            sinceTurn = 0;
+            nextTurnGap = Random.value < doubleTurnChance
+                ? 1
+                : Random.Range(minTurnGap, maxTurnGap + 1);
             zoneIdx = tileIndex / tilesPerZone;
         }
 
@@ -214,6 +466,7 @@ namespace WarriorRun.World
         {
             var tile = liveTiles.First.Value;
             liveTiles.RemoveFirst();
+            if (legs.Count > 0) legs.RemoveAt(0);
 
             var chunk = tile.GetComponent<TrackChunk>();
             if (chunk != null)
@@ -226,8 +479,10 @@ namespace WarriorRun.World
         }
 
         // ---- population ----
+        // Everything below works in TILE-LOCAL space (x = lateral, z = along
+        // travel) so content lands correctly on straight AND rotated tiles.
 
-        void Populate(Transform tileRoot, int index, System.Random rng, TrackChunk chunk, Zone zone)
+        void Populate(Transform tileRoot, int index, System.Random rng, TrackChunk chunk, Zone zone, bool cornerNext)
         {
             var decor = zone != null && zone.decorPrefabs != null && zone.decorPrefabs.Length > 0
                 ? zone.decorPrefabs : decorPrefabs;
@@ -237,6 +492,7 @@ namespace WarriorRun.World
             float xMax = zone != null ? zone.decorXMax : 9.7f;
             int decorCount = zone != null ? zone.decorCount : 3;
             int featureCount = zone != null ? zone.featureCount : 2;
+            var tileRot = tileRoot.rotation;
 
             // side props — houses / trees / rocks / ruins, depending on the zone
             for (int i = 0; i < decorCount; i++)
@@ -247,13 +503,12 @@ namespace WarriorRun.World
                 float x = side * (xMin + (float)rng.NextDouble() * (xMax - xMin));
                 float z = (float)rng.NextDouble() * tileLength;
                 var d = GetFromPool(prefab);
-                float wx = tileRoot.position.x + x;
-                float wz = tileRoot.position.z + z;
+                var wp = tileRoot.TransformPoint(new Vector3(x, 0f, z));
                 // snap the prop's base onto whatever surface lies beneath it —
                 // meadow, canyon bed, sidewalk, temple undercroft all differ
                 d.transform.SetPositionAndRotation(
-                    new Vector3(wx, SurfaceAt(tileRoot, wx, wz), wz),
-                    Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f));
+                    new Vector3(wp.x, SurfaceAt(tileRoot, wp.x, wp.z), wp.z),
+                    tileRot * Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f));
                 d.SetActive(true);
                 chunk.Spawned.Add(d);
             }
@@ -268,8 +523,8 @@ namespace WarriorRun.World
                     float z = 2f + (float)rng.NextDouble() * (tileLength - 4f);
                     var f = GetFromPool(prefab);
                     f.transform.SetPositionAndRotation(
-                        tileRoot.position + new Vector3(side * 3.78f, 0f, z),
-                        Quaternion.Euler(0f, side < 0 ? 90f : -90f, 0f));
+                        tileRoot.TransformPoint(new Vector3(side * 3.78f, 0f, z)),
+                        tileRot * Quaternion.Euler(0f, side < 0 ? 90f : -90f, 0f));
                     f.SetActive(true);
                     chunk.Spawned.Add(f);
                 }
@@ -277,32 +532,73 @@ namespace WarriorRun.World
 
             if (index < safeTiles) return; // opening stretch stays clear
 
-            float difficulty = Mathf.Clamp01((player.position.z + index * tileLength) / 1500f);
+            float difficulty = Mathf.Clamp01(spawnDist / 1500f);
             float obstacleChance = Mathf.Lerp(baseObstacleChance, maxObstacleChance, difficulty);
+            if (cornerNext) obstacleChance *= 0.35f;
 
             // one candidate row per tile — coins or a single obstacle row
-            for (int row = 0; row < 1; row++)
-            {
-                float z = 8f + (float)rng.NextDouble() * 8f;
-                double roll = rng.NextDouble();
+            float rowZ = 8f + (float)rng.NextDouble() * 8f;
+            double roll = rng.NextDouble();
 
-                if (roll < powerUpChance && powerUpPrefabs != null && powerUpPrefabs.Length > 0)
-                    SpawnPowerUp(tileRoot.position + new Vector3(0f, 0f, z), rng, chunk);
-                else if (roll < powerUpChance + coinRowChance)
-                    SpawnCoinRow(tileRoot.position + new Vector3(0f, 0f, z), rng, chunk);
-                else if (roll < powerUpChance + coinRowChance + obstacleChance)
-                    SpawnObstacleRow(tileRoot.position + new Vector3(0f, 0f, z), rng, chunk, difficulty, zone);
+            if (roll < powerUpChance && powerUpPrefabs != null && powerUpPrefabs.Length > 0)
+                SpawnPowerUp(tileRoot, rowZ, rng, chunk, zone);
+            else if (roll < powerUpChance + coinRowChance)
+                SpawnCoinRow(tileRoot, rowZ, rng, chunk, zone);
+            else if (roll < powerUpChance + coinRowChance + obstacleChance)
+                SpawnObstacleRow(tileRoot, rowZ, rng, chunk, difficulty, zone);
+        }
+
+        /// <summary>
+        /// Junction dressing: coins tracing the bend, zone decor filling the
+        /// blocked quadrant so the corner blends into the current biome.
+        /// The walls, gate, sign, chevron and dead-end trigger are baked into
+        /// the corner prefab itself.
+        /// </summary>
+        void PopulateCorner(Transform tileRoot, TurnPlan plan, System.Random rng, TrackChunk chunk, Zone zone)
+        {
+            var tileRot = tileRoot.rotation;
+            var decor = zone != null && zone.decorPrefabs != null && zone.decorPrefabs.Length > 0
+                ? zone.decorPrefabs : decorPrefabs;
+            int count = Mathf.Max(4, (zone != null ? zone.decorCount : 6) / 2);
+
+            // outer quadrant — the dead side of the plaza, opposite the exit
+            for (int i = 0; i < count; i++)
+            {
+                if (decor == null || decor.Length == 0) break;
+                var prefab = decor[rng.Next(decor.Length)];
+                float lx = -plan.dir * (5.9f + (float)rng.NextDouble() * 4.6f);
+                float lz = 1.5f + (float)rng.NextDouble() * 21f;
+                var d = GetFromPool(prefab);
+                var wp = tileRoot.TransformPoint(new Vector3(lx, 0f, lz));
+                d.transform.SetPositionAndRotation(
+                    new Vector3(wp.x, SurfaceAt(tileRoot, wp.x, wp.z), wp.z),
+                    tileRot * Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f));
+                d.SetActive(true);
+                chunk.Spawned.Add(d);
+            }
+
+            // coins riding the bend — a reward line that shows the way around
+            float half = tileLength * 0.5f;
+            var arcCentreL = new Vector3(plan.dir * turnRadius, 0f, half - turnRadius);
+            var dirOutL = new Vector3(plan.dir, 0f, 0f);
+            for (int i = 0; i < 6; i++)
+            {
+                float phi = (i + 0.5f) / 6f * Mathf.PI * 0.5f;
+                var lp = arcCentreL + turnRadius * (Vector3.forward * Mathf.Sin(phi) - dirOutL * Mathf.Cos(phi));
+                SpawnCoin(tileRoot.TransformPoint(lp), chunk);
             }
         }
 
-        void SpawnObstacleRow(Vector3 rowPos, System.Random rng, TrackChunk chunk, float difficulty, Zone zone)
+        void SpawnObstacleRow(Transform tileRoot, float z, System.Random rng, TrackChunk chunk, float difficulty, Zone zone)
         {
-            // block 1-2 lanes, always keep >= 1 free lane
-            int blocked = rng.NextDouble() < 0.30 + difficulty * 0.25 ? 2 : 1;
+            bool single = zone != null && zone.singleLane;
+            // block 1-2 lanes, always keep >= 1 free lane — single-lane zones
+            // get exactly one centre blocker that must be jumped or slid under
+            int blocked = !single && rng.NextDouble() < 0.30 + difficulty * 0.25 ? 2 : 1;
 
-            var lanes = new List<int> { 0, 1, 2 };
+            var lanes = single ? new List<int> { 1 } : new List<int> { 0, 1, 2 };
             Shuffle(lanes, rng);
-            if (blocked == 1)
+            if (blocked == 1 && !single)
             {
                 // never wall the same lane twice in a row, and ease the
                 // centre lane off — a streak of middle blocks reads as spam
@@ -320,25 +616,40 @@ namespace WarriorRun.World
                 int lane = lanes[i];
                 GameObject prefab = PickObstacle(rng, zone);
                 var go = GetFromPool(prefab);
-                float ox = rowPos.x + (lane - 1) * laneWidth;
-                float oz = rowPos.z;
+                var wp = tileRoot.TransformPoint(new Vector3((lane - 1) * laneWidth, 0f, z));
                 go.transform.SetPositionAndRotation(
-                    new Vector3(ox, SurfaceAt(chunk.transform, ox, oz), oz),
-                    prefab.transform.rotation);
+                    new Vector3(wp.x, SurfaceAt(tileRoot, wp.x, wp.z), wp.z),
+                    tileRoot.rotation * prefab.transform.rotation);
                 go.SetActive(true);
                 chunk.Spawned.Add(go);
             }
 
-            // sprinkle coins on a free lane
+            // sprinkle coins on a free lane — over the blocker when there's
+            // only one lane, so the row arcs over the thing you jump
             if (rng.NextDouble() < 0.5)
             {
-                int freeLane = lanes[blocked];
+                int freeLane = lanes.Count > blocked ? lanes[blocked] : 1;
                 for (int c = 0; c < 3; c++)
-                    SpawnCoin(rowPos + new Vector3((freeLane - 1) * laneWidth, 0f, -2f + c * 2f), chunk); // chunk carries the tile transform
+                    SpawnCoin(tileRoot.TransformPoint(
+                        new Vector3((freeLane - 1) * laneWidth, 0f, z - 2f + c * 2f)), chunk);
             }
         }
 
         GameObject PickObstacle(System.Random rng, Zone zone)
+        {
+            bool single = zone != null && zone.singleLane;
+            for (int tries = 0; tries < 6; tries++)
+            {
+                var p = PickObstacleInner(rng, zone);
+                // a walled lane-blocker in a one-lane zone is unfair — re-roll
+                if (!single) return p;
+                var ob = p != null ? p.GetComponentInChildren<Obstacle>(true) : null;
+                if (ob == null || ob.kind != ObstacleKind.WallBlock) return p;
+            }
+            return lowBarrierPrefab != null ? lowBarrierPrefab : spikePrefab;
+        }
+
+        GameObject PickObstacleInner(System.Random rng, Zone zone)
         {
             if (zone != null && zone.obstaclePrefabs != null && zone.obstaclePrefabs.Length > 0)
             {
@@ -358,23 +669,24 @@ namespace WarriorRun.World
             return wallBlockPrefab;
         }
 
-        void SpawnPowerUp(Vector3 rowPos, System.Random rng, TrackChunk chunk)
+        void SpawnPowerUp(Transform tileRoot, float z, System.Random rng, TrackChunk chunk, Zone zone)
         {
             var prefab = powerUpPrefabs[rng.Next(powerUpPrefabs.Length)];
             var go = GetFromPool(prefab);
-            int lane = rng.Next(3);
-            float px = rowPos.x + (lane - 1) * laneWidth;
+            int lane = zone != null && zone.singleLane ? 1 : rng.Next(3);
+            var wp = tileRoot.TransformPoint(new Vector3((lane - 1) * laneWidth, 0f, z));
             go.transform.SetPositionAndRotation(
-                new Vector3(px, SurfaceAt(chunk.transform, px, rowPos.z) + 1.15f, rowPos.z), Quaternion.identity);
+                new Vector3(wp.x, SurfaceAt(tileRoot, wp.x, wp.z) + 1.15f, wp.z), Quaternion.identity);
             go.SetActive(true);
             chunk.Spawned.Add(go);
         }
 
-        void SpawnCoinRow(Vector3 rowPos, System.Random rng, TrackChunk chunk)
+        void SpawnCoinRow(Transform tileRoot, float z, System.Random rng, TrackChunk chunk, Zone zone)
         {
-            int lane = rng.Next(3);
+            int lane = zone != null && zone.singleLane ? 1 : rng.Next(3);
             for (int c = 0; c < 5; c++)
-                SpawnCoin(rowPos + new Vector3((lane - 1) * laneWidth, 0f, c * 1.6f), chunk);
+                SpawnCoin(tileRoot.TransformPoint(
+                    new Vector3((lane - 1) * laneWidth, 0f, z + c * 1.6f)), chunk);
         }
 
         void SpawnCoin(Vector3 pos, TrackChunk chunk)
@@ -389,10 +701,10 @@ namespace WarriorRun.World
         /// <summary>
         /// Height of the solid surface under world (x,z), limited to colliders
         /// that belong to the tile itself. Every tile slab — path, meadow,
-        /// canyon bed, sidewalk, sand bed — keeps its collider, so pickups and
-        /// props sit on the *visible* ground in every biome instead of floating
-        /// above flat zones or sinking into raised ones. Previously spawned
-        /// decor/obstacles on the same tile are ignored.
+        /// canyon bed, sidewalk, temple undercroft — keeps its collider, so
+        /// pickups and props sit on the *visible* ground in every biome
+        /// instead of floating above flat zones or sinking into raised ones.
+        /// Previously spawned decor/obstacles on the same tile are ignored.
         /// </summary>
         static float SurfaceAt(Transform tile, float x, float z, float fallback = 0.02f)
         {
@@ -450,6 +762,8 @@ namespace WarriorRun.World
     public class TrackChunk : MonoBehaviour
     {
         public List<GameObject> Spawned { get; } = new();
+        public float endDist;   // path distance at this tile's exit edge
+        public TrackManager.Zone zone;   // biome this tile was spawned under
         public void Clear() => Spawned.Clear();
     }
 }

@@ -1,10 +1,11 @@
 # WarriorRun
 
 **WarriorRun** is a free and open-source endless-runner game built with Unity 6 (URP).
-Sprint through snowy peaks, volcanic wastes, neon nights, forests, canyons, city
-streets, temples, vaults and lagoons — dodge, jump and slide past procedurally
-built stylized props in a chunky, saturated low-poly art style (Subway Surfers /
-Temple Run territory) that flies on ordinary phones.
+Sprint through snowy peaks, volcanic chasms, neon nights, forests, canyons, city
+streets, temples, vaults and lagoons — dodge, jump, slide and **take corners**
+Temple Run–style as the track bends through walled junctions, past procedurally
+built stylized props in a chunky, saturated low-poly art style that flies on
+ordinary phones.
 
 > This project is open source. Read it, fork it, learn from it, ship your own runner.
 
@@ -33,7 +34,7 @@ far more colourful.)*
 ## Download & Play
 
 - **Android:** grab the APK from
-  [Releases](../../releases/latest) → `WarriorRun.apk` (~41 MB).
+  [Releases](../../releases/latest) → `WarriorRun.apk` (~42 MB).
   Sideload it: copy to the device, tap, allow "install unknown apps" when asked.
 - **iOS:** no downloadable build — iOS apps can't be sideloaded without Apple
   signing. To run it on an iPhone/iPad, build from source: install Unity's
@@ -43,8 +44,16 @@ far more colourful.)*
 ## Gameplay
 
 - Classic 3-lane endless runner: swipe to switch lanes, jump, and slide
-- **Nine biome zones** in a shuffled rotation — Temple, Forest, Vault, Canyon,
-  City, Lagoon, plus **Frost** (snowy peaks, snowmen, ice crystals), **Ember**
+- **Temple Run–style corner junctions** — the track bends 90° through walled
+  plazas every few tiles; gold HUD chevrons flash as a corner approaches and
+  you must swipe the right direction before the bend. Miss it and you meet the
+  dead-end wall — or the void. Occasional S-bends chain two corners back to
+  back. The whole world bends with the path: camera swing, coins, decor, fog,
+  and distance scoring all follow the spine.
+- **Ten biome zones** in a shuffled rotation — Temple, Forest, Vault, Canyon,
+  City, Lagoon, plus **Volcano** (a single pinned lane on a narrow basalt
+  bridge over breathing lava — no lane to dodge into, every blocker is a
+  jump or a slide), **Frost** (snowy peaks, snowmen, ice crystals), **Ember**
   (basalt and glowing lava veins, obsidian crags) and **Neon** (night strip,
   glowing lane guides, holo cubes)
 - Each zone has its own tile skins, decor set, obstacle pool and fog colour —
@@ -82,6 +91,8 @@ triangle count reads as style, not budget:
 - **Procedural prefabs** — the editor pipeline (`ExtraContent.cs`) composes
   primitives into themed obstacles and decor: snowball piles, lava pools,
   obsidian spikes, neon beams, pylons, holo cubes… no external art needed
+- **Blender turn assets** — `blender_turn_assets.py` generates the corner
+  junction props (stone exit gate, trail signpost) that mark every bend
 - **Flat-colour URP materials** — 60+ saturated Lit materials, no texture maps
 - **Procedural sky** — Unity's built-in procedural skybox + trilight ambient;
   per-zone fog colour lerps as biomes change
@@ -109,6 +120,7 @@ Assets/WarriorRun/
   Resources/Audio beat_*.wav/beat_*.mp3 loops — picked at random each run
   Art/Realistic/  Blender-generated stylized glTF models
 blender_lowpoly_assets.py  regenerates every model (headless Blender)
+blender_turn_assets.py     generates the corner-junction props (gate, signpost)
 blender_make_assets.py     original obstacle generator
 blender_decimate.py        decimates scan meshes to mobile budgets
 ```
@@ -122,12 +134,16 @@ blender_decimate.py        decimates scan meshes to mobile budgets
    (scenes, materials, prefabs) if needed.
 4. **Build ▸ Build** targeting Android produces `Builds/Android/WarriorRun.apk`.
 
-Headless/CI build (includes the stylized restyle + extra-content pass):
+Headless/CI build (full pipeline: prefab/scene regen → stylized restyle →
+extra content → validation → APK):
 
 ```bash
 Unity -batchmode -nographics -projectPath <repo> \
-  -executeMethod WarriorRun.EditorTools.StylizedUpgrade.RestyleAndBuildAndroid -quit
+  -executeMethod WarriorRun.EditorTools.StylizedUpgrade.FullRebuildAndroid -quit
 ```
+
+The same pipeline is available in-editor via menu ▸ **WarriorRun →
+Full Rebuild + Android APK**.
 
 ## Asset Credits & Licenses
 

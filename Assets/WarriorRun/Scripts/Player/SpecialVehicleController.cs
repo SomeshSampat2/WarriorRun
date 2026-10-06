@@ -34,7 +34,7 @@ namespace WarriorRun.Player
 
         bool car;
         bool plane;
-        float prevX;
+        Vector3 prevPos;
         float bank;
         float bobPhase;
         bool enginePaused;
@@ -48,7 +48,7 @@ namespace WarriorRun.Player
             engine.volume = engineVolume;
             carLoop = Resources.Load<AudioClip>("Audio/sfx_carloop");
             planeLoop = Resources.Load<AudioClip>("Audio/sfx_planeloop");
-            prevX = transform.position.x;
+            prevPos = transform.position;
         }
 
         void Update()
@@ -78,10 +78,11 @@ namespace WarriorRun.Player
                 engine.pitch = Mathf.Lerp(0.85f, 1.45f,
                     Mathf.InverseLerp(9f, gm.MaxSpeed * 1.6f, gm.CurrentSpeed));
 
-            // lateral velocity -> bank into the lane change
+            // lateral velocity -> bank into the lane change (heading-relative,
+            // so banking still reads correctly after a corner)
             float dt = Mathf.Max(Time.deltaTime, 1e-5f);
-            float vx = (transform.position.x - prevX) / dt;
-            prevX = transform.position.x;
+            float vx = Vector3.Dot(transform.position - prevPos, transform.right) / dt;
+            prevPos = transform.position;
             bank = Mathf.Lerp(bank, Mathf.Clamp(-vx * 2.4f, -bankDeg, bankDeg), 8f * Time.deltaTime);
 
             if (car && carRig != null)

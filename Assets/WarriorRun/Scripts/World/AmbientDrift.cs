@@ -4,25 +4,27 @@ using WarriorRun.Core;
 namespace WarriorRun.World
 {
     /// <summary>
-    /// Keeps an ambient particle emitter floating ahead of the runner so the
-    /// dust-mote field travels with the player. In scenes with no run
-    /// (main menu) it simply holds its authored position.
+    /// Keeps an ambient particle emitter floating ahead of the runner — along
+    /// the current travel heading, so the dust-mote field stays in front of
+    /// the player through corners too. In scenes with no run (main menu) it
+    /// simply holds its authored position.
     /// </summary>
     public class AmbientDrift : MonoBehaviour
     {
         [SerializeField] float aheadZ = 22f;
         [SerializeField] float height = 3f;
 
-        Transform player;
+        Player.PlayerController pc;
 
         void Update()
         {
-            if (player == null)
+            if (pc == null)
             {
-                player = GameManager.Instance != null ? GameManager.Instance.PlayerTf : null;
-                if (player == null) return;
+                pc = FindFirstObjectByType<Player.PlayerController>();
+                if (pc == null) return;
             }
-            transform.position = new Vector3(0f, height, player.position.z + aheadZ);
+            transform.position = pc.transform.position
+                + pc.Forward * aheadZ + Vector3.up * height;
         }
     }
 }
