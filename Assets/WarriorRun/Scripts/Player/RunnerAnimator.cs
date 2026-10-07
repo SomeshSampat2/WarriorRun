@@ -50,6 +50,7 @@ namespace WarriorRun.Player
         public void OnSlide(bool on) { if (on) squash = 0.8f; }
         public void OnLaneSwitch(int dir) => targetRoll = -dir * 9f;
         public void OnLand() => squash = 0.74f;
+        public void OnZip(bool on) { } // pose driven by pc.IsZipping in LateUpdate
 
         public void OnDeath()
         {
@@ -82,8 +83,21 @@ namespace WarriorRun.Player
             if (grounded && !wasGrounded) squash = 0.74f; // landing squash
             wasGrounded = grounded;
 
+            bool zipping = pc != null && pc.IsZipping;
+
             // legs + arms
-            if (!grounded)
+            if (zipping)
+            {
+                // hanging off the cable — arms punched straight up and tipped
+                // inward so both fists meet on the trolley grip; legs trail
+                // loose with a lazy pendulum sway
+                float sway = Mathf.Sin(cycle * 0.9f) * 13f;
+                LerpXZ(armL, 172f, 17f);
+                LerpXZ(armR, 172f, -17f);
+                SetX(legL, Mathf.Lerp(legL.localEulerAngles.x.ToSigned(), -16f + sway * 0.75f, 8f * Time.deltaTime));
+                SetX(legR, Mathf.Lerp(legR.localEulerAngles.x.ToSigned(), -44f - sway, 8f * Time.deltaTime));
+            }
+            else if (!grounded)
             {
                 // air pose: legs tucked, arms raised
                 SetX(legL, Mathf.Lerp(legL.localEulerAngles.x.ToSigned(), -70f, 12f * Time.deltaTime));
@@ -122,7 +136,8 @@ namespace WarriorRun.Player
             }
 
             float leanTarget = running ? forwardLeanDeg : 0f;
-            if (sliding) leanTarget = -28f;
+            if (zipping) leanTarget = -16f;      // body tips back, feet forward
+            else if (sliding) leanTarget = -28f;
             else if (!grounded) leanTarget = -6f;
             leanX = Mathf.Lerp(leanX, leanTarget, 8f * Time.deltaTime);
             rollZ = Mathf.Lerp(rollZ, targetRoll, 10f * Time.deltaTime);
@@ -164,6 +179,19 @@ namespace WarriorRun.Player
             if (t == null) return;
             var e = t.localEulerAngles;
             e.x = xDeg;
+            // only the zip pose ever sets z — decay it back so the release
+            // doesn't leave the arms rolled inward
+            e.z = Mathf.Lerp(e.z.ToSigned(), 0f, 10f * Time.deltaTime);
+            t.localEulerAngles = e;
+        }
+
+        /// <summary>Arms up + tipped inward — fists meet on the grip overhead.</summary>
+        static void LerpXZ(Transform t, float xDeg, float zDeg)
+        {
+            if (t == null) return;
+            var e = t.localEulerAngles;
+            e.x = Mathf.Lerp(e.x.ToSigned(), xDeg, 12f * Time.deltaTime);
+            e.z = Mathf.Lerp(e.z.ToSigned(), zDeg, 12f * Time.deltaTime);
             t.localEulerAngles = e;
         }
     }

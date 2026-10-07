@@ -80,6 +80,12 @@ namespace WarriorRun.Player
         const float flipSpeed = 620f;
         bool wasGrounded = true;
 
+        // zip-hang pose — arm bones steered onto the trolley grip every frame
+        // (FromToRotation is axis-free, so no assumption about rig conventions)
+        Transform uaL, uaR, laL, laR, spineB, headB, legUL, legUR;
+        float zipPose;
+        bool bonesSearched;
+
         // menu showcase cycle
         float showcaseT;
         int showcaseIdx;
@@ -199,6 +205,27 @@ namespace WarriorRun.Player
 
         public void OnLand() => squash = landDip;
 
+        /// <summary>
+        /// Grab/release the zipline — hold the airborne hang clip for the
+        /// whole ride; release just rejoins the normal airborne→land flow.
+        /// </summary>
+        public void OnZip(bool on)
+        {
+            if (dead || starting || menuShowcase) return;
+            if (on)
+            {
+                airborne = true;
+                landTimer = 0f;
+                if (plays[S_Air].IsValid())
+                {
+                    plays[S_Air].SetTime(0);
+                    plays[S_Air].SetPlayState(PlayState.Playing);
+                    FadeTo(S_Air, 0.18f);
+                }
+            }
+            else squash = landDip; // little dip as the feet come back under
+        }
+
         public void OnDeath()
         {
             dead = true;
@@ -278,6 +305,65 @@ namespace WarriorRun.Player
             TickFade();
         }
 
+        /// <summary>
+        /// Post-graph bone steering for the zipline: the airborne clip supplies
+        /// the base pose, then the arm bones aim onto the trolley grip (hands
+        /// genuinely wrapped overhead), the spine arches back, chin up, legs
+        /// trail — the classic hanging-ride silhouette.
+        /// </summary>
+        void LateUpdate()
+        {
+            bool want = pc != null && pc.IsZipping && !dead && !menuShowcase && !starting;
+            zipPose = Mathf.MoveTowards(zipPose, want ? 1f : 0f, Time.deltaTime * 3.5f);
+            if (zipPose < 0.01f) return;
+            EnsureZipBones();
+            if (uaL == null || pc == null) return;
+
+            var root = pc.transform;
+            Vector3 gripL = root.TransformPoint(new Vector3(-0.11f, 1.97f, 0.17f));
+            Vector3 gripR = root.TransformPoint(new Vector3(0.11f, 1.97f, 0.17f));
+            // upper arm carries the reach, forearm follows with a hint of bend
+            Aim(uaL, laL.position, gripL, zipPose);
+            Aim(uaR, laR.position, gripR, zipPose);
+            if (laL.childCount > 0) Aim(laL, laL.GetChild(0).position, gripL, zipPose * 0.6f);
+            if (laR.childCount > 0) Aim(laR, laR.GetChild(0).position, gripR, zipPose * 0.6f);
+            // chest opens back under the cable, chin up watching the line
+            if (spineB != null) spineB.rotation =
+                Quaternion.AngleAxis(-8f * zipPose, root.right) * spineB.rotation;
+            if (headB != null) headB.rotation =
+                Quaternion.AngleAxis(-13f * zipPose, root.right) * headB.rotation;
+            // legs dangle forward a touch — momentum trailing the swing
+            if (legUL != null) legUL.rotation =
+                Quaternion.AngleAxis(9f * zipPose, root.right) * legUL.rotation;
+            if (legUR != null) legUR.rotation =
+                Quaternion.AngleAxis(15f * zipPose, root.right) * legUR.rotation;
+        }
+
+        /// <summary>Rotate bone so its child direction points at target — no axis guesswork.</summary>
+        static void Aim(Transform bone, Vector3 tip, Vector3 target, float w)
+        {
+            var q = Quaternion.FromToRotation(tip - bone.position, target - bone.position);
+            bone.rotation = Quaternion.Slerp(Quaternion.identity, q, w) * bone.rotation;
+        }
+
+        void EnsureZipBones()
+        {
+            if (bonesSearched || anim == null) return;
+            bonesSearched = true;
+            foreach (var t in anim.GetComponentsInChildren<Transform>(true))
+                switch (t.name)
+                {
+                    case "upperarm.l": uaL = t; break;
+                    case "upperarm.r": uaR = t; break;
+                    case "lowerarm.l": laL = t; break;
+                    case "lowerarm.r": laR = t; break;
+                    case "spine":      spineB = t; break;
+                    case "head":       headB = t; break;
+                    case "upperleg.l": legUL = t; break;
+                    case "upperleg.r": legUR = t; break;
+                }
+        }
+
         void UpdateShowcase()
         {
             showcaseT -= Time.deltaTime;
@@ -303,7 +389,8 @@ namespace WarriorRun.Player
             float dt = Time.deltaTime;
 
             float leanTarget = running ? forwardLeanDeg : 0f;
-            if (sliding) leanTarget = -14f;
+            if (pc != null && pc.IsZipping) leanTarget = -15f; // reclined hang under the cable
+            else if (sliding) leanTarget = -14f;
             else if (!grounded) leanTarget = -5f;
             leanX = Mathf.Lerp(leanX, leanTarget, 9f * dt);
 

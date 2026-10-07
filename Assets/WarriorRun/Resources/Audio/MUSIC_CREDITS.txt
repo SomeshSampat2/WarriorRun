@@ -1,13 +1,35 @@
-BACKGROUND MUSIC — LICENSE
+BACKGROUND MUSIC — LICENSES
 =========================================
 
-  beat_1.mp3 .. beat_3.mp3
-  music_loop.mp3
-              Action chiptunes from "5 Action Chiptunes" pack
-              by Juhani Junkala (SubspaceAudio)
+All tracks are "Free for Profit" type beats published by their
+producers on YouTube for free use in monetised content, with
+attribution. Normalised to -14 LUFS (EBU R128) and re-encoded
+to 192 kbps MP3 for uniform loudness.
 
-  License:    CC0 1.0 — public domain.
-              Free for any use, no attribution required.
-              https://creativecommons.org/publicdomain/zero/1.0/
+  beat_voices.mp3
+              "Voices" — Aggressive NF Type Beat by Suvi
+              Source: https://youtu.be/6Kc1KzKSa0E
+              Usage: Free for profit — credit the producer.
 
-  Source:     https://opengameart.org/content/5-chiptunes-action
+  beat_dread.mp3  +  music_loop.mp3 (fallback loop)
+              "DREAD" — Dark NF Type Beat / Cinematic Trap
+              by LightType Beats
+              Source: https://youtu.be/CRzGPkeWZ-w
+              Usage: Free for profit — credit the producer.
+
+  beat_mash.mp3
+              "MASH" — UK Drill Type Beat x NY Drill Type Beat
+              by ZoL Beatz
+              Source: https://youtu.be/BMKGdkadCcI
+              Usage: Free for profit — credit the producer.
+
+  beat_samba.mp3
+              "SAMBA" — Afro Drill x Central Cee Type Beat
+              by Juni Quickly
+              Source: https://youtu.be/Ph1h3TUbQvM
+              Usage: Free for profit — credit the producer.
+
+"Free for profit" beats permit monetised use as provided by each
+producer; attribution here and in the project README satisfies the
+standard credit requirement. Verify each channel's posted terms if
+the game is released commercially.

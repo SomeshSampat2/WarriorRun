@@ -108,11 +108,269 @@ namespace WarriorRun.EditorTools
             Log("DEV APK -> Builds/Android/WarriorRun-dev.apk result=" + report.summary.result);
         }
 
+        /// <summary>Surgical entry — resynthesizes the SFX wavs only (no scene writes).</summary>
+        [MenuItem("WarriorRun/Rebuild Audio")]
+        public static void RebuildAudio()
+        {
+            GenerateAudio();
+            AssetDatabase.SaveAssets();
+            Log("Audio rebuilt");
+        }
+
         /// <summary>Batch entry: full procedural rebuild, then the APK — one shot.</summary>
         public static void RebuildAndBuildAndroid()
         {
             Build();
             BuildAndroid();
+        }
+
+        /// <summary>
+        /// Menu/batch entry: regenerate ONLY the lava-chasm tile prefabs in
+        /// place. The full Build() also rewrites Game.unity, which would drop
+        /// the zones later content passes appended — this keeps scene wiring
+        /// intact (prefab GUIDs are preserved at the same asset paths).
+        /// </summary>
+        [MenuItem("WarriorRun/Rebuild Lava Tiles")]
+        public static void RebuildLavaTiles()
+        {
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+            // pull just the materials MakeLavaTile touches — no full rebuild
+            foreach (var n in new[] { "Basalt", "BasaltDark", "StoneDark", "Lava", "LavaDeep" })
+                mats[n] = AssetDatabase.LoadAssetAtPath<Material>(Root + "/Materials/" + n + ".mat");
+            EnsureLavaAssets();   // flow mesh + LavaSurf / CrustRock materials
+            MakeLavaTile(0, "Tile_Lava_A");
+            MakeLavaTile(1, "Tile_Lava_B");
+            // walkway lava pools get the denser animated melt too
+            var poolPath = Root + "/Prefabs/X_LavaPool.prefab";
+            var pool = PrefabUtility.LoadPrefabContents(poolPath);
+            if (pool != null)
+            {
+                Transform lava = null;
+                foreach (var t in pool.GetComponentsInChildren<Transform>(true))
+                    if (t.name == "Lava") { lava = t; break; }
+                if (lava != null)
+                {
+                    var r = lava.GetComponent<MeshRenderer>();
+                    if (r != null && mats.TryGetValue("LavaSurfPool", out var pm))
+                        r.sharedMaterial = pm;
+                }
+                PrefabUtility.SaveAsPrefabAsset(pool, poolPath);
+                PrefabUtility.UnloadPrefabContents(pool);
+            }
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Log("Lava tiles rebuilt");
+        }
+
+        /// <summary>
+        /// Menu/batch entry: regenerate ONLY the zip-gorge tile prefabs, patch
+        /// the player prefab with the rope trolley, and wire the Gorge zone
+        /// into Game.unity — no full-scene rewrite (same reason as the lava
+        /// entry: Build() would drop the appended biomes).
+        /// </summary>
+        [MenuItem("WarriorRun/Rebuild Zip Tiles")]
+        public static void RebuildZipTiles()
+        {
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+            foreach (var n in new[] { "CanyonBed", "StoneDark", "Basalt", "BasaltDark",
+                                      "Rock", "LeafA", "Trunk", "Grass", "Wood", "WoodDark" })
+                mats[n] = AssetDatabase.LoadAssetAtPath<Material>(Root + "/Materials/" + n + ".mat");
+            rockMesh = AssetDatabase.LoadAssetAtPath<Mesh>(Root + "/Meshes/Rock.asset");
+            EnsureZipAssets();
+            MakeZipTiles();
+            AttachZipTrolleyToPrefab();
+            WireGorgeZone();
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Log("Zip gorge rebuilt");
+        }
+
+        /// <summary>Rope + river + waterfall materials for the gorge.</summary>
+        static void EnsureZipAssets()
+        {
+            Mat("Rope", Hex("#3A2A1C"), 0.08f);
+            Mat("GorgeWater", Hex("#2E6E6A"), 0.6f);
+            PMat("Waterfall", new Color(0.72f, 0.86f, 0.9f, 0.4f), false);
+
+            // twisted-hemp fiber texture, tiled along the rope tube
+            EnsureFolder(Root + "/Art/Realistic/Textures");
+            var fiber = WriteTexture(Root + "/Art/Realistic/Textures/RopeFiber.png", 128, 128,
+                (x, y, w, h) =>
+                {
+                    float u = x / (float)w, v = y / (float)h;
+                    // strand ridges winding diagonally down the wrap, plus a
+                    // finer lay and per-pixel fuzz so it reads as hemp, not silk
+                    float strand = Mathf.Abs(Mathf.Repeat(u * 3f + v * 6f, 1f) - 0.5f) * 2f;
+                    float lay = Mathf.Abs(Mathf.Repeat(u * 6f + v * 11f, 1f) - 0.5f) * 2f;
+                    float fuzz = Mathf.Repeat(Mathf.Sin(x * 12.9898f + y * 78.233f) * 43758.5453f, 1f);
+                    float l = Mathf.Clamp01(0.45f + 0.33f * (1f - strand) + 0.16f * (1f - lay) + 0.06f * fuzz);
+                    return new Color32((byte)(l * 232), (byte)(l * 188), (byte)(l * 132), 255);
+                });
+            var rope = Mat("RopeFiber", Color.white, 0.22f);
+            rope.SetTexture("_BaseMap", fiber);
+            EditorUtility.SetDirty(rope);
+        }
+
+        /// <summary>Hide a wheel+handle prop on the player — pops on for the ride.</summary>
+        static void AttachZipTrolley(GameObject root)
+        {
+            if (root.transform.Find("ZipTrolley") != null) return;
+            var model = AssetDatabase.LoadAssetAtPath<GameObject>(
+                Root + "/Art/Realistic/Models/bl_ziptrolley/bl_ziptrolley.gltf");
+            if (model == null) { Log("WARN: bl_ziptrolley missing"); return; }
+            var go = (GameObject)PrefabUtility.InstantiatePrefab(model, root.transform);
+            go.name = "ZipTrolley";
+            // wheel rides the cable at rope height — feet hang hangDepth below
+            go.transform.localPosition = new Vector3(0f, 2.02f, 0f);
+            go.SetActive(false);
+        }
+
+        /// <summary>Drop the magnet ground/gyro rings from the built prefab — swirl only.</summary>
+        [MenuItem("WarriorRun/Strip Magnet Rings")]
+        public static void StripMagnetRings()
+        {
+            string path = Root + "/Prefabs/Player.prefab";
+            var root = PrefabUtility.LoadPrefabContents(path);
+            if (root == null) { Log("WARN: Player.prefab missing"); return; }
+            foreach (var n in new[] { "MagnetRing", "MagnetRingTilt" })
+            {
+                var t = root.transform.Find(n);
+                if (t != null) UnityEngine.Object.DestroyImmediate(t.gameObject);
+            }
+            PrefabUtility.SaveAsPrefabAsset(root, path);
+            PrefabUtility.UnloadPrefabContents(root);
+            AssetDatabase.SaveAssets();
+            Log("Magnet rings stripped");
+        }
+
+        /// <summary>Surgical version — patch the already-built Player.prefab.</summary>
+        static void AttachZipTrolleyToPrefab()
+        {
+            string path = Root + "/Prefabs/Player.prefab";
+            var root = PrefabUtility.LoadPrefabContents(path);
+            if (root == null) { Log("WARN: Player.prefab missing"); return; }
+            AttachZipTrolley(root);
+            PrefabUtility.SaveAsPrefabAsset(root, path);
+            PrefabUtility.UnloadPrefabContents(root);
+        }
+
+        /// <summary>
+        /// Cable anchor at the launch deck edge — a wooden mast with a crossarm
+        /// reaching the rope start, planted left of the run line so nothing
+        /// frames the path like a gate. Shared by MakeZipTile and the surgical
+        /// gate strip.
+        /// </summary>
+        static void AddEntryMast(GameObject root)
+        {
+            Prim(PrimitiveType.Cylinder, "Mast", mats["WoodDark"], root.transform,
+                new Vector3(-3.25f, 2.55f, 8.35f), new Vector3(0.18f, 2.55f, 0.18f));
+            Beam(root.transform,
+                new Vector3(-3.25f, 4.95f, 8.35f),
+                new Vector3(0f, 4.62f, 8.35f), 0.09f, mats["WoodDark"], "MastArm");
+        }
+
+        /// <summary>
+        /// Surgical entry — strips the entrance gate dressing out of the
+        /// already-built tile prefabs: the zip launch tower (replaced by an
+        /// off-line anchor mast), the sandstone gates at turn-junction exits
+        /// and the basalt arch + lintel in the volcano tile.
+        /// </summary>
+        [MenuItem("WarriorRun/Strip Entrance Gates")]
+        public static void StripEntranceGates()
+        {
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+            mats["WoodDark"] = AssetDatabase.LoadAssetAtPath<Material>(Root + "/Materials/WoodDark.mat");
+
+            // zip entry — drop the straddling launch tower, plant the side mast
+            string p = Root + "/Prefabs/Tile_Zip_Entry.prefab";
+            var root = PrefabUtility.LoadPrefabContents(p);
+            if (root != null)
+            {
+                var t = root.transform.Find("ZipTower");
+                if (t != null) UnityEngine.Object.DestroyImmediate(t.gameObject);
+                if (root.transform.Find("Mast") == null) AddEntryMast(root);
+                PrefabUtility.SaveAsPrefabAsset(root, p);
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+
+            // volcano B — drop the lintel + the two arch columns hugging the
+            // ledge (bank columns sit at |x| >= 15.5, the arch pair at ±3)
+            p = Root + "/Prefabs/Tile_Lava_B.prefab";
+            root = PrefabUtility.LoadPrefabContents(p);
+            if (root != null)
+            {
+                var lintel = root.transform.Find("Lintel");
+                if (lintel != null) UnityEngine.Object.DestroyImmediate(lintel.gameObject);
+                for (int i = root.transform.childCount - 1; i >= 0; i--)
+                {
+                    var c = root.transform.GetChild(i);
+                    if (c.name == "hd_basalt_hex" && Mathf.Abs(c.localPosition.x) < 8f)
+                        UnityEngine.Object.DestroyImmediate(c.gameObject);
+                }
+                PrefabUtility.SaveAsPrefabAsset(root, p);
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+
+            // turn junctions — drop the sandstone gate straddling the exit mouth
+            foreach (var n in new[] { "Tile_TurnL", "Tile_TurnR" })
+            {
+                p = Root + "/Prefabs/" + n + ".prefab";
+                root = PrefabUtility.LoadPrefabContents(p);
+                if (root == null) continue;
+                var g = root.transform.Find("bl_gate");
+                if (g != null) UnityEngine.Object.DestroyImmediate(g.gameObject);
+                PrefabUtility.SaveAsPrefabAsset(root, p);
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Log("Entrance gates stripped");
+        }
+
+        /// <summary>Batch entry: strip entrance gates, then the APK.</summary>
+        public static void StripGatesAndBuildAndroid()
+        {
+            StripEntranceGates();
+            BuildAndroid();
+        }
+
+        /// <summary>
+        /// Append the Gorge biome (index 10) to Game.unity's TrackManager:
+        /// ordered zip sequence, no corners, misty canyon fog.
+        /// </summary>
+        static void WireGorgeZone()
+        {
+            string p = Root + "/Scenes/Game.unity";
+            var scene = EditorSceneManager.OpenScene(p, OpenSceneMode.Single);
+            var tm = UnityEngine.Object.FindFirstObjectByType<TrackManager>();
+            if (tm == null) { Debug.LogWarning("[WarriorRun] TrackManager not found"); return; }
+            var so = new SerializedObject(tm);
+            var zones = so.FindProperty("zones");
+            zones.arraySize = Mathf.Max(zones.arraySize, 11);
+            var z = zones.GetArrayElementAtIndex(10);
+            z.FindPropertyRelative("name").stringValue = "Gorge";
+            z.FindPropertyRelative("tilePrefab").objectReferenceValue = null;
+            z.FindPropertyRelative("tilePrefabs").arraySize = 0;
+            var seq = z.FindPropertyRelative("tileSequence");
+            seq.arraySize = 7;
+            string[] order = { "Tile_Zip_Entry", "Tile_Zip_Mid", "Tile_Zip_Mid",
+                               "Tile_Zip_Mid", "Tile_Zip_Mid", "Tile_Zip_Mid", "Tile_Zip_Exit" };
+            for (int i = 0; i < order.Length; i++)
+                seq.GetArrayElementAtIndex(i).objectReferenceValue =
+                    AssetDatabase.LoadAssetAtPath<GameObject>(Root + "/Prefabs/" + order[i] + ".prefab");
+            z.FindPropertyRelative("decorPrefabs").arraySize = 0;
+            z.FindPropertyRelative("featurePrefabs").arraySize = 0;
+            z.FindPropertyRelative("obstaclePrefabs").arraySize = 0;
+            z.FindPropertyRelative("decorCount").intValue = 0;
+            z.FindPropertyRelative("featureCount").intValue = 0;
+            z.FindPropertyRelative("singleLane").boolValue = false;
+            z.FindPropertyRelative("noTurns").boolValue = true;
+            z.FindPropertyRelative("fogColor").colorValue = Hex("#A9C6B8"); // pale gorge mist
+            so.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(tm);
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
         }
 
         public static string Build()
@@ -178,7 +436,7 @@ namespace WarriorRun.EditorTools
 
         // ================= meshes =================
 
-        static Mesh coneMesh, rockMesh, pyramidMesh, ringMesh;
+        static Mesh coneMesh, rockMesh, pyramidMesh, ringMesh, lavaSurfMesh;
 
         static void CreateMeshes()
         {
@@ -186,7 +444,103 @@ namespace WarriorRun.EditorTools
             rockMesh = SaveMesh(MakeRock(1234), "Rock", Root + "/Meshes/Rock.asset");
             pyramidMesh = SaveMesh(MakeCone(4, 1f, 1f), "Pyramid4", Root + "/Meshes/Pyramid4.asset");
             ringMesh = SaveMesh(MakeRing(0.55f, 0.8f, 48), "AuraRing", Root + "/Meshes/AuraRing.asset");
+            EnsureLavaAssets();
+            EnsureZipAssets();
             Log("Meshes created");
+        }
+
+        /// <summary>
+        /// The molten-lava assets — subdivided flow mesh + crack shader
+        /// material + crust-rock material. Shared by Build() and the
+        /// surgical RebuildLavaTiles pass so both stay in sync.
+        /// </summary>
+        static void EnsureLavaAssets()
+        {
+            lavaSurfMesh = SaveMesh(MakePlaneGrid(12.4f, 24f, 18, 34), "LavaSurf",
+                Root + "/Meshes/LavaSurf.asset");
+
+            string mp = Root + "/Materials/LavaSurf.mat";
+            var lm = AssetDatabase.LoadAssetAtPath<Material>(mp);
+            var sh = Shader.Find("WarriorRun/LavaSurface");
+            if (lm == null)
+            {
+                lm = new Material(sh) { name = "LavaSurf" };
+                AssetDatabase.CreateAsset(lm, mp);
+            }
+            else if (sh != null && lm.shader != sh) lm.shader = sh;
+            if (sh == null) Debug.LogWarning("[WarriorRun] LavaSurface shader not found");
+            lm.SetFloat("_CellScale", 0.62f);
+            lm.SetFloat("_CrackWidth", 0.13f);
+            lm.SetFloat("_FlowSpeed", 0.05f);
+            lm.SetFloat("_WobbleAmp", 0.13f);
+            lm.SetFloat("_WobbleSpeed", 0.5f);
+            lm.SetFloat("_PulseSpeed", 0.55f);
+            lm.SetFloat("_SwellAmp", 0.075f);
+            lm.SetFloat("_ShoreGlow", 0.85f);
+            lm.SetFloat("_Glow", 2.6f);
+            lm.SetColor("_CrustColor", Hex("#120A0B"));
+            lm.SetColor("_Hot1", Hex("#B31200"));
+            lm.SetColor("_Hot2", Hex("#FF5A0A"));
+            lm.SetColor("_Hot3", Hex("#FFC84A"));
+            EditorUtility.SetDirty(lm);
+            mats["LavaSurf"] = lm;
+
+            // same melt, denser cells — used by the small walkway pools
+            string pp = Root + "/Materials/LavaSurfPool.mat";
+            var pm = AssetDatabase.LoadAssetAtPath<Material>(pp);
+            if (pm == null)
+            {
+                pm = new Material(lm.shader != null ? lm.shader : sh) { name = "LavaSurfPool" };
+                AssetDatabase.CreateAsset(pm, pp);
+            }
+            else if (sh != null && pm.shader != sh) pm.shader = sh;
+            pm.SetFloat("_CellScale", 1.7f);
+            pm.SetFloat("_CrackWidth", 0.16f);
+            pm.SetFloat("_FlowSpeed", 0.03f);
+            pm.SetFloat("_WobbleAmp", 0.18f);
+            pm.SetFloat("_WobbleSpeed", 0.6f);
+            pm.SetFloat("_PulseSpeed", 0.9f);
+            pm.SetFloat("_SwellAmp", 0.02f);
+            pm.SetFloat("_ShoreGlow", 0.35f);
+            pm.SetFloat("_Glow", 2.4f);
+            pm.SetColor("_CrustColor", Hex("#120A0B"));
+            pm.SetColor("_Hot1", Hex("#B31200"));
+            pm.SetColor("_Hot2", Hex("#FF5A0A"));
+            pm.SetColor("_Hot3", Hex("#FFC84A"));
+            EditorUtility.SetDirty(pm);
+            mats["LavaSurfPool"] = pm;
+
+            // floating crust chunks — near-black basalt with a faint hot cast
+            Mat("CrustRock", Hex("#160D0C"), 0.12f, 0f, true);
+        }
+
+        /// <summary>Subdivided XZ plane centered on origin, UV 0..1 — enough verts for the swell.</summary>
+        static Mesh MakePlaneGrid(float w, float d, int nx, int nz)
+        {
+            var verts = new List<Vector3>();
+            var uvs = new List<Vector2>();
+            var tris = new List<int>();
+            for (int z = 0; z <= nz; z++)
+            for (int x = 0; x <= nx; x++)
+            {
+                float u = x / (float)nx, v = z / (float)nz;
+                verts.Add(new Vector3((u - 0.5f) * w, 0f, (v - 0.5f) * d));
+                uvs.Add(new Vector2(u, v));
+            }
+            for (int z = 0; z < nz; z++)
+            for (int x = 0; x < nx; x++)
+            {
+                int b = z * (nx + 1) + x;
+                tris.Add(b); tris.Add(b + nx + 1); tris.Add(b + nx + 2);
+                tris.Add(b); tris.Add(b + nx + 2); tris.Add(b + 1);
+            }
+            var mesh = new Mesh();
+            mesh.SetVertices(verts);
+            mesh.SetUVs(0, uvs);
+            mesh.SetTriangles(tris, 0);
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            return mesh;
         }
 
         /// <summary>Flat XZ annulus facing +Y — the magnet aura's ground ring.</summary>
@@ -226,6 +580,7 @@ namespace WarriorRun.EditorTools
             m.Clear();
             m.vertices = fresh.vertices;
             m.triangles = fresh.triangles;
+            m.uv = fresh.uv;
             m.RecalculateNormals();
             m.RecalculateBounds();
             EditorUtility.SetDirty(m);
@@ -335,12 +690,12 @@ namespace WarriorRun.EditorTools
                 AssetDatabase.CreateAsset(m, path);
             }
             m.SetColor("_BaseColor", color);
-            m.SetFloat("_Smoothness", smooth);
-            m.SetFloat("_Metallic", metallic);
+            if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", smooth);
+            if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", metallic);
             if (emission)
             {
                 m.EnableKeyword("_EMISSION");
-                m.SetColor("_EmissionColor", color * 0.55f);
+                if (m.HasProperty("_EmissionColor")) m.SetColor("_EmissionColor", color * 0.55f);
             }
             EditorUtility.SetDirty(m);
             mats[name] = m;
@@ -615,6 +970,27 @@ namespace WarriorRun.EditorTools
             sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
         }
 
+        /// <summary>Same generator as WriteSprite but imports a tiling Default texture.</summary>
+        static Texture2D WriteTexture(string path, int w, int h, PixelFunc fn)
+        {
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            var px = new Color32[w * h];
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                    px[y * w + x] = fn(x, y, w, h);
+            tex.SetPixels32(px);
+            tex.Apply();
+            File.WriteAllBytes(path, tex.EncodeToPNG());
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+            var imp = (TextureImporter)AssetImporter.GetAtPath(path);
+            imp.textureType = TextureImporterType.Default;
+            imp.wrapMode = TextureWrapMode.Repeat;
+            imp.filterMode = FilterMode.Bilinear;
+            imp.mipmapEnabled = true;
+            imp.SaveAndReimport();
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+        }
+
         // ================= font =================
 
         static void GenerateFont()
@@ -820,10 +1196,44 @@ namespace WarriorRun.EditorTools
             return s;
         }
 
+        /// <summary>
+        /// Swept whoosh: noise through a two-stage lowpass whose cutoff dives
+        /// over the clip — the descending band is what reads as motion, unlike
+        /// a flat hiss. Real attack + eased release + a little raw sparkle
+        /// riding the cutoff so the front edge still bites.
+        /// </summary>
+        static float[] Whoosh(float dur, float c0, float c1, float vol, float attack = 0.02f, int seed = 7)
+        {
+            int n = (int)(SR * dur);
+            var s = new float[n];
+            var rng = new System.Random(seed);
+            float lp1 = 0f, lp2 = 0f;
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)n;
+                float cutoff = Mathf.Lerp(c0, c1, t * t);   // dive early, settle low
+                float raw = (float)(rng.NextDouble() * 2 - 1);
+                lp1 = Mathf.Lerp(lp1, raw, cutoff);
+                lp2 = Mathf.Lerp(lp2, lp1, cutoff);
+                float env = Mathf.Min(1f, i / (SR * attack)) * Mathf.Pow(1f - t, 1.4f);
+                s[i] = (lp2 * 0.85f + raw * cutoff * 0.15f) * vol * env;
+            }
+            return s;
+        }
+
         static float[] SynthCoin() => Mix(Sine(1318, 1318, 0.08f, 0.5f), Delay(Sine(1760, 1760, 0.1f, 0.5f), 0.07f), Delay(Sine(2349, 2349, 0.11f, 0.35f), 0.14f));
         static float[] SynthJump() => Mix(Sine(320, 760, 0.2f, 0.45f), Delay(Noise(0.12f, 0.25f, 0.15f, 0.02f), 0.02f));
-        static float[] SynthSlide() => Noise(0.28f, 0.4f, 0.35f, 0.08f);
-        static float[] SynthSwipe() => Noise(0.09f, 0.3f, 0.5f, 0.15f);
+        // ground-roll scrape: low rumbling whoosh + a soft contact thump
+        static float[] SynthSlide() => Mix(
+            Whoosh(0.30f, 0.5f, 0.07f, 0.5f, 0.028f, 11),
+            Sine(170, 55, 0.15f, 0.3f),
+            Delay(Whoosh(0.16f, 0.32f, 0.1f, 0.22f, 0.02f, 33), 0.05f));
+        // lane swipe: a tight "vwoosh" — descending noise over a falling tonal
+        // core so it has body like the jump, not just air
+        static float[] SynthSwipe() => Mix(
+            Whoosh(0.17f, 0.9f, 0.09f, 0.5f, 0.014f, 21),
+            Delay(Sine(880, 240, 0.11f, 0.2f), 0.02f),
+            Delay(Whoosh(0.07f, 1f, 0.55f, 0.16f, 0.006f, 34), 0.012f));
         static float[] SynthCrash() => Mix(Noise(0.45f, 0.55f, 0.6f, 0.05f), Sine(140, 45, 0.35f, 0.55f));
         static float[] SynthClick() => Sine(1200, 900, 0.05f, 0.35f);
         static float[] SynthStart() => Mix(Sine(660, 660, 0.1f, 0.4f), Delay(Sine(880, 880, 0.1f, 0.4f), 0.1f), Delay(Sine(1320, 1320, 0.16f, 0.45f), 0.2f));
@@ -1077,34 +1487,51 @@ namespace WarriorRun.EditorTools
             prefabs["Wall"] = MakeWall();
             prefabs["Spike"] = MakeSpikeTrap();
             prefabs["Coin"] = MakeCoin();
-            // ruins decor visible beyond the walls
-            prefabs["D_Pillar"] = MakeDecor("pillar_decorated", "D_Pillar", 0f, new Vector3(1.35f, 1.35f, 1.35f));
-            prefabs["D_Pillar2"] = MakeDecor("pillar", "D_Pillar2", 0f, new Vector3(1.2f, 1.5f, 1.2f));
-            prefabs["D_Column"] = MakeDecor("column", "D_Column", 0f, new Vector3(1.6f, 1.8f, 1.6f));
-            prefabs["D_Rubble"] = MakeDecor("rubble_large", "D_Rubble", 0f, new Vector3(0.8f, 0.8f, 0.8f));
+            // ruins decor visible beyond the walls — Blender HD stone set
+            prefabs["D_Pillar"] = MakeDecorR("hd_column", "D_Pillar", 4.4f);
+            prefabs["D_Pillar2"] = MakeDecorR("hd_column_broken", "D_Pillar2", 2.6f);
+            prefabs["D_Column"] = MakeDecorR("hd_column", "D_Column", 5.2f, rotY: 30f);
+            prefabs["D_Rubble"] = MakeDecorR("hd_rubble", "D_Rubble", 0.7f);
             prefabs["D_Barrel"] = MakeDecor("barrel_large", "D_Barrel", 0f, new Vector3(0.9f, 0.9f, 0.9f));
             prefabs["D_Keg"] = MakeDecor("keg_decorated", "D_Keg");
             prefabs["D_Chest"] = MakeDecor("chest_gold", "D_Chest");
             // vault props
-            prefabs["D_Crates"] = MakeDecor("crates_stacked", "D_Crates", 0f, new Vector3(0.9f, 0.9f, 0.9f));
+            prefabs["D_Crates"] = MakeDecorR("hd_crates", "D_Crates", 1.1f);
             prefabs["D_Box"] = MakeDecor("box_large", "D_Box", 0f, new Vector3(0.85f, 0.85f, 0.85f));
             prefabs["D_CoinPile"] = MakeCoinPile();
-            // forest props (Kenney nature kit — detailed trunks/canopies)
-            prefabs["K_Oak"] = MakeDecorK("tree_detailed", "K_Oak", new Vector3(1.7f, 1.7f, 1.7f), sway: 1.8f);
-            prefabs["K_Tall"] = MakeDecorK("tree_tall", "K_Tall", new Vector3(1.6f, 1.6f, 1.6f), sway: 1.8f);
-            prefabs["K_Pine"] = MakeDecorK("tree_pineTallA_detailed", "K_Pine", new Vector3(1.8f, 1.8f, 1.8f), sway: 1.6f);
-            prefabs["K_Bush"] = MakeDecorK("plant_bushDetailed", "K_Bush", new Vector3(1.2f, 1.2f, 1.2f), sway: 3.2f);
-            prefabs["K_Grass"] = MakeDecorK("grass_leafsLarge", "K_Grass", new Vector3(1.1f, 1.1f, 1.1f), sway: 3.6f);
-            prefabs["K_Flower"] = MakeDecorK("flower_redA", "K_Flower", new Vector3(1.3f, 1.3f, 1.3f), sway: 3.6f);
-            prefabs["K_Mush"] = MakeDecorK("mushroom_redGroup", "K_Mush", new Vector3(1.2f, 1.2f, 1.2f), sway: 2.4f);
-            prefabs["K_Log"] = MakeDecorK("log_stack", "K_Log", new Vector3(1.2f, 1.2f, 1.2f));
-            // canyon props — modular cliff pieces read as real rock formations
-            prefabs["K_Cliff"] = MakeDecorK("cliff_large_rock", "K_Cliff", new Vector3(2f, 2f, 2f));
-            prefabs["K_CliffTop"] = MakeDecorK("cliff_top_rock", "K_CliffTop", new Vector3(1.8f, 1.8f, 1.8f));
-            prefabs["K_Cave"] = MakeDecorK("cliff_cave_rock", "K_Cave", new Vector3(1.8f, 1.8f, 1.8f));
-            prefabs["K_Cactus"] = MakeDecorK("cactus_tall", "K_Cactus", new Vector3(1.4f, 1.4f, 1.4f), sway: 3.4f);
-            prefabs["K_CactusS"] = MakeDecorK("cactus_short", "K_CactusS", new Vector3(1.3f, 1.3f, 1.3f), sway: 3.4f);
-            prefabs["K_Camp"] = MakeDecorK("campfire_stones", "K_Camp", new Vector3(1.4f, 1.4f, 1.4f));
+            // forest props — Blender HD pack (distinct species, layered canopies)
+            prefabs["K_Oak"] = MakeDecorR("hd_oak", "K_Oak", 5.8f, sway: 1.8f);
+            prefabs["K_Tall"] = MakeDecorR("hd_pine_b", "K_Tall", 6.4f, sway: 1.6f);
+            prefabs["K_Pine"] = MakeDecorR("hd_pine_a", "K_Pine", 5.2f, sway: 1.6f);
+            prefabs["K_Maple"] = MakeDecorR("hd_maple", "K_Maple", 5.4f, sway: 1.8f);
+            prefabs["K_Birch"] = MakeDecorR("hd_birch", "K_Birch", 5.6f, sway: 1.8f);
+            prefabs["K_Blossom"] = MakeDecorR("hd_blossom", "K_Blossom", 4.6f, sway: 1.8f);
+            prefabs["K_Bush"] = MakeDecorR("hd_fern", "K_Bush", 1.0f, sway: 3.2f);
+            prefabs["K_Grass"] = MakeDecorR("hd_grass", "K_Grass", 0.6f, sway: 3.6f);
+            prefabs["K_Flower"] = MakeDecorR("hd_flowers", "K_Flower", 0.6f, sway: 3.6f);
+            prefabs["K_Mush"] = MakeDecorR("hd_mushrooms", "K_Mush", 0.5f, sway: 2.4f);
+            prefabs["K_Log"] = MakeDecorR("hd_log", "K_Log", 0.75f);
+            prefabs["K_Dead"] = MakeDecorR("hd_dead", "K_Dead", 4.0f, sway: 1.4f);
+            // canyon props — layered mesas, hoodoo spires, desert scatter
+            prefabs["K_Cliff"] = MakeDecorR("hd_mesa_a", "K_Cliff", 5.0f);
+            prefabs["K_CliffTop"] = MakeDecorR("hd_mesa_b", "K_CliffTop", 6.0f);
+            prefabs["K_Cave"] = MakeDecorR("hd_rockpile", "K_Cave", 1.0f);
+            prefabs["K_Cactus"] = MakeDecorR("hd_saguaro", "K_Cactus", 2.6f, sway: 2.2f);
+            prefabs["K_CactusS"] = MakeDecorR("hd_barrelcactus", "K_CactusS", 1.0f, sway: 2.8f);
+            prefabs["K_Camp"] = MakeDecorR("hd_drybrush", "K_Camp", 0.8f);
+            prefabs["K_DryBrush"] = MakeDecorR("hd_drybrush", "K_DryBrush", 0.7f, rotY: 190f);
+            prefabs["K_Skull"] = MakeDecorR("hd_skull", "K_Skull", 0.55f);
+            prefabs["K_Spire"] = MakeDecorR("hd_rockspire", "K_Spire", 5.4f);
+            // volcanic dressing — basalt columns, obsidian, embers
+            prefabs["V_Basalt"] = MakeDecorR("hd_basalt_hex", "V_Basalt", 2.6f);
+            prefabs["V_Obsidian"] = MakeDecorR("hd_obsidian", "V_Obsidian", 2.0f);
+            prefabs["V_Charred"] = MakeDecorR("hd_charred", "V_Charred", 3.0f, sway: 1.2f);
+            prefabs["V_LavaBomb"] = MakeDecorR("hd_lavabomb", "V_LavaBomb", 1.0f);
+            // temple accents — columns, idols, braziers, urns
+            prefabs["D_Statue"] = MakeDecorR("hd_statue", "D_Statue", 3.2f);
+            prefabs["D_Brazier"] = MakeDecorR("hd_brazier", "D_Brazier", 1.4f);
+            prefabs["D_Urn"] = MakeDecorR("hd_urn", "D_Urn", 1.15f);
+            prefabs["D_ColBroken"] = MakeDecorR("hd_column_broken", "D_ColBroken", 2.4f);
             // egypt/desert dressing — obelisks, ruined columns, dunes
             prefabs["D_Obelisk"] = MakeObeliskPrefab();
             prefabs["D_RuinCol"] = MakeRuinColPrefab();
@@ -1122,28 +1549,31 @@ namespace WarriorRun.EditorTools
             prefabs["C_Crates"] = MakeCrateStack();
             prefabs["C_CarBlock"] = MakeCarBlock();
             // city sidewalk decor (zone channel — sits on the walk)
-            prefabs["C_Hydrant"] = MakeDecorC("firehydrant", "C_Hydrant", 0.55f);
-            prefabs["C_TrashA"] = MakeDecorC("trash_A", "C_TrashA", 0.30f);
-            prefabs["C_TrashB"] = MakeDecorC("trash_B", "C_TrashB", 0.28f);
-            prefabs["C_Bush"] = MakeDecorC("bush", "C_Bush", 0.85f, sway: 3.2f);
-            prefabs["C_Box"] = MakeDecorC("box_A", "C_Box", 0.45f);
-            prefabs["C_Tower"] = MakeDecorC("watertower", "C_Tower", 6.5f);
-            // Quaternius decor for forest / canyon / lagoon zone channels
-            prefabs["Q_Bush"] = MakeDecorQ("Bush_Large_Flowers", "Q_Bush", 1.0f, sway: 3.2f);
-            prefabs["Q_BushS"] = MakeDecorQ("Bush_Small_Flowers", "Q_BushS", 0.7f, sway: 3.4f);
-            prefabs["Q_Flower"] = MakeDecorQ("Flower_3_Clump", "Q_Flower", 0.5f, sway: 3.6f);
-            prefabs["Q_GrassL"] = MakeDecorQ("Grass_Large_Extruded", "Q_GrassL", 0.6f, sway: 3.6f);
-            prefabs["Q_Plant"] = MakeDecorQ("Plant_Flowers", "Q_Plant", 0.7f, sway: 3.4f);
-            prefabs["Q_RockA"] = MakeDecorQ("Rock_2", "Q_RockA", 0.9f);
-            prefabs["Q_RockB"] = MakeDecorQ("Rock_4", "Q_RockB", 1.4f);
-            prefabs["Q_Dead"] = MakeDecorQ("DeadTree_6", "Q_Dead", 3.6f, sway: 1.4f);
-            prefabs["Q_Dead2"] = MakeDecorQ("DeadTree_9", "Q_Dead2", 3.0f, sway: 1.4f);
-            prefabs["Q_RockD"] = MakeDecorQ("Rock_3", "Q_RockD", 1.2f, "Rocks_Desert");
-            prefabs["Q_RockD2"] = MakeDecorQ("Rock_5", "Q_RockD2", 0.9f, "Rocks_Red_Desert");
-            prefabs["Q_PalmA"] = MakeDecorQ("PalmTree_2", "Q_PalmA", 4.6f, sway: 2.6f);
-            prefabs["Q_PalmB"] = MakeDecorQ("PalmTree_4", "Q_PalmB", 5.4f, sway: 2.6f);
-            prefabs["Q_Log"] = MakeDecorK("log_large", "Q_Log", new Vector3(1.4f, 1.4f, 1.4f));
-            prefabs["Q_Stump"] = MakeDecorQ("Rock_1", "Q_Stump", 0.85f);
+            prefabs["C_Hydrant"] = MakeDecorR("hd_hydrant", "C_Hydrant", 0.95f);
+            prefabs["C_TrashA"] = MakeDecorR("hd_trashcan", "C_TrashA", 1.0f);
+            prefabs["C_TrashB"] = MakeDecorR("hd_crates", "C_TrashB", 0.9f, rotY: 30f);
+            prefabs["C_Bush"] = MakeDecorR("hd_planter", "C_Bush", 1.0f);
+            prefabs["C_Box"] = MakeDecorR("hd_crates", "C_Box", 1.05f, rotY: 160f);
+            prefabs["C_Tower"] = MakeDecorR("hd_watertower", "C_Tower", 6.5f);
+            prefabs["C_Lamp"] = MakeDecorR("hd_streetlamp", "C_Lamp", 3.9f);
+            prefabs["C_Traffic"] = MakeDecorR("hd_trafficlight", "C_Traffic", 3.4f);
+            prefabs["C_BusStop"] = MakeDecorR("hd_busstop", "C_BusStop", 2.4f);
+            // Blender HD decor for forest / canyon / lagoon zone channels
+            prefabs["Q_Bush"] = MakeDecorR("hd_bush", "Q_Bush", 1.0f, sway: 3.2f);
+            prefabs["Q_BushS"] = MakeDecorR("hd_fern", "Q_BushS", 0.85f, sway: 3.4f);
+            prefabs["Q_Flower"] = MakeDecorR("hd_flowers", "Q_Flower", 0.6f, sway: 3.6f);
+            prefabs["Q_GrassL"] = MakeDecorR("hd_grass", "Q_GrassL", 0.65f, sway: 3.6f);
+            prefabs["Q_Plant"] = MakeDecorR("hd_fern", "Q_Plant", 1.1f, rotY: 90f, sway: 3.4f);
+            prefabs["Q_RockA"] = MakeDecorR("hd_boulder", "Q_RockA", 1.2f);
+            prefabs["Q_RockB"] = MakeDecorR("hd_rockpile", "Q_RockB", 1.1f);
+            prefabs["Q_Dead"] = MakeDecorR("hd_dead", "Q_Dead", 4.0f, sway: 1.4f);
+            prefabs["Q_Dead2"] = MakeDecorR("hd_dead", "Q_Dead2", 3.2f, rotY: 137f, sway: 1.4f);
+            prefabs["Q_RockD"] = MakeDecorR("hd_rock_desert", "Q_RockD", 1.3f);
+            prefabs["Q_RockD2"] = MakeDecorR("hd_rockpile", "Q_RockD2", 1.0f, rotY: 70f);
+            prefabs["Q_PalmA"] = MakeDecorR("hd_palm_a", "Q_PalmA", 4.6f, sway: 2.6f);
+            prefabs["Q_PalmB"] = MakeDecorR("hd_palm_b", "Q_PalmB", 5.0f, sway: 2.6f);
+            prefabs["Q_Log"] = MakeDecorR("hd_log", "Q_Log", 0.75f);
+            prefabs["Q_Stump"] = MakeDecorR("hd_stump", "Q_Stump", 0.9f);
             // remastered dungeon dressing for temple/vault variety
             prefabs["D2_Coins"] = MakeDecor2("coin_stack_large", "D2_Coins", 0f, new Vector3(1.6f, 1.6f, 1.6f));
             prefabs["D2_Trunk"] = MakeDecor2("trunk_large_A", "D2_Trunk", 0f, new Vector3(1.5f, 1.5f, 1.5f));
@@ -1168,15 +1598,22 @@ namespace WarriorRun.EditorTools
             // volcanic chasm — narrow basalt bridge, lava channels flanking
             prefabs["Tile_Lava_A"] = MakeLavaTile(0, "Tile_Lava_A");
             prefabs["Tile_Lava_B"] = MakeLavaTile(1, "Tile_Lava_B");
+            // zip gorge — ropeway descent over a canyon river
+            prefabs["Tile_Zip_Entry"] = MakeZipTile(ZipKind.Entry, 71, "Tile_Zip_Entry");
+            prefabs["Tile_Zip_Mid"] = MakeZipTile(ZipKind.Mid, 97, "Tile_Zip_Mid");
+            prefabs["Tile_Zip_Exit"] = MakeZipTile(ZipKind.Exit, 113, "Tile_Zip_Exit");
             prefabs["W_Wave"] = MakeWaveBarrier();
             prefabs["W_Buoy"] = MakeBuoyBlock();
             prefabs["W_Geyser"] = MakeGeyserBlock();
-            prefabs["W_Palm1"] = MakeDecorN("PalmTree_1", "W_Palm1", 4.6f, sway: 2.6f);
-            prefabs["W_Palm2"] = MakeDecorN("PalmTree_2", "W_Palm2", 5.4f, sway: 2.6f);
-            prefabs["W_Palm3"] = MakeDecorKFit("tree_palmTall", "W_Palm3", 5.0f, sway: 2.6f);
-            prefabs["W_Rock"] = MakeDecorN("Rock_3", "W_Rock", 1.5f);
-            prefabs["W_Bush"] = MakeDecorN("Bush_1", "W_Bush", 1.3f, sway: 3.2f);
-            prefabs["W_Flowers"] = MakeDecorN("Flowers", "W_Flowers", 1.1f, sway: 3.4f);
+            prefabs["W_Palm1"] = MakeDecorR("hd_palm_a", "W_Palm1", 4.8f, sway: 2.6f);
+            prefabs["W_Palm2"] = MakeDecorR("hd_palm_b", "W_Palm2", 4.2f, sway: 2.6f);
+            prefabs["W_Palm3"] = MakeDecorR("hd_palm_a", "W_Palm3", 5.4f, rotY: 140f, sway: 2.6f);
+            prefabs["W_Rock"] = MakeDecorR("hd_beachrock", "W_Rock", 1.1f);
+            prefabs["W_Bush"] = MakeDecorR("hd_bush", "W_Bush", 1.1f, sway: 3.2f);
+            prefabs["W_Flowers"] = MakeDecorR("hd_flowers", "W_Flowers", 0.55f, sway: 3.4f);
+            prefabs["W_Drift"] = MakeDecorR("hd_driftwood", "W_Drift", 0.7f);
+            prefabs["W_Shells"] = MakeDecorR("hd_shells", "W_Shells", 0.4f);
+            prefabs["W_Coral"] = MakeDecorR("hd_coral", "W_Coral", 0.8f);
             // wall-hung features (child Y baked into prefab)
             prefabs["WF_Torch"] = MakeTorchFeature();
             prefabs["WF_Banner"] = MakeBannerFeature();
@@ -1486,6 +1923,20 @@ namespace WarriorRun.EditorTools
         static readonly string[] CBuildingsNB = { "building_A_withoutBase", "building_C_withoutBase", "building_E_withoutBase", "building_G_withoutBase" };
         static readonly string[] CCars = { "car_hatchback", "car_sedan", "car_taxi", "car_stationwagon", "car_police" };
         static readonly string[] CSidewalk = { "firehydrant", "trash_A", "trash_B", "bush", "box_A", "bench" };
+        // Blender HD pack (blender_hd_assets.py) — layered stylized props per biome
+        static readonly string[] HDTrees = { "hd_oak", "hd_maple", "hd_birch", "hd_blossom", "hd_oak", "hd_maple", "hd_birch" };
+        static readonly string[] HDPines = { "hd_pine_a", "hd_pine_b" };
+        static readonly string[] HDUnder = { "hd_bush", "hd_fern", "hd_flowers", "hd_grass", "hd_mushrooms", "hd_bush", "hd_fern", "hd_grass" };
+        static readonly string[] HDRocks = { "hd_boulder", "hd_rockpile" };
+        static readonly string[] HDPalm = { "hd_palm_a", "hd_palm_b" };
+        static readonly string[] HDBeach = { "hd_beachrock", "hd_driftwood", "hd_shells", "hd_coral", "hd_beachrock", "hd_shells" };
+        static readonly string[] HDCliff = { "hd_mesa_a", "hd_mesa_b", "hd_rockspire", "hd_rock_desert" };
+        static readonly string[] HDDesert = { "hd_saguaro", "hd_barrelcactus", "hd_drybrush", "hd_skull" };
+        static readonly string[] HDBldg = { "hd_bldg_brick", "hd_bldg_shop", "hd_bldg_modern", "hd_bldg_brick", "hd_bldg_tower" };
+        static readonly string[] HDBldgFar = { "hd_bldg_modern", "hd_bldg_tower", "hd_bldg_brick" };
+        static readonly string[] HDCars = { "hd_sedan", "hd_taxi", "hd_van" };
+        static readonly string[] HDWalk = { "hd_hydrant", "hd_trashcan", "hd_planter", "hd_crates", "hd_bench" };
+        static readonly string[] HDVolcanic = { "hd_basalt_hex", "hd_obsidian", "hd_lavabomb", "hd_charred" };
 
         static void WallRow(Transform root, string[] patL, string[] patR)
         {
@@ -1502,34 +1953,48 @@ namespace WarriorRun.EditorTools
         }
 
         /// <summary>Shared floor grid: 2x6 rows of 4m tiles + undercroft. Pass groundMat for a plain painted path instead of GLB tiles.</summary>
-        static void TileFloor(Transform root, string[] pool, System.Random rng, bool dirtTint, Material groundMat = null, float groundW = 9.4f, Material underMat = null)
+        static void TileFloor(Transform root, string[] pool, System.Random rng, bool dirtTint, Material groundMat = null, float groundW = 9.4f, Material underMat = null, string floorModel = "hd_rd_stone")
         {
             var ground = Prim(PrimitiveType.Cube, "Ground", groundMat != null ? groundMat : mats["Track"], root.transform,
                 new Vector3(0, -0.28f, 12), new Vector3(groundW, 0.6f, 24f), keepCollider: true);
             var mr = ground.GetComponent<MeshRenderer>();
             mr.enabled = groundMat != null;
             if (groundMat == null)
-                for (int zi = 0; zi < 6; zi++)
-                    for (int xi = 0; xi < 2; xi++)
+            {
+                // authored flagstone slab replaces the loose GLB tile loop;
+                // the cube stays as the collider, slab top aligns with its surface
+                var slab = BModel(floorModel, root.transform, new Vector3(0, 0.02f, 12));
+                if (slab != null && groundW != 9.4f)
+                {
+                    var b = ComputeLocalBounds(slab);
+                    if (b.size.x > 0.01f)
                     {
-                        var f = DModel(pool[rng.Next(pool.Length)], root.transform,
-                            new Vector3(xi == 0 ? -2f : 2f, 0f, zi * 4f + 2f));
-                        if (f != null) { FitModel(f, targetX: 4.0f); FitModel(f, targetZ: 4.0f); FixDungeonMats(f); }
+                        var ls = slab.transform.localScale;
+                        slab.transform.localScale = new Vector3(ls.x * (groundW / b.size.x), ls.y, ls.z);
                     }
+                }
+            }
             Prim(PrimitiveType.Cube, "UnderBed", underMat != null ? underMat : mats["StoneDark"], root.transform,
                 new Vector3(0, -0.75f, 12), new Vector3(56f, 0.5f, 24f), keepCollider: true); // collider lets props raycast-snap onto the bed
-            // backdrop colonnade — colossal pillars and broken wall arcs looming outside the corridor
+            // backdrop colonnade — colossal pillars, statues and broken wall arcs looming outside the corridor
             var rng2 = new System.Random(71);
             for (int zi = 0; zi < 6; zi++)
                 foreach (var side in new[] { -1f, 1f })
                 {
-                    if (rng2.NextDouble() < 0.8)
+                    double pick = rng2.NextDouble();
+                    if (pick < 0.62)
                     {
-                        var c = DModel(rng2.NextDouble() < 0.5 ? "column" : "pillar_decorated", root.transform,
+                        var c = BModel(rng2.NextDouble() < 0.7 ? "hd_column" : "hd_column_broken", root.transform,
                             new Vector3(side * (8.6f + (float)rng2.NextDouble() * 4f), 0f, zi * 4f + (float)rng2.NextDouble() * 2f), rng2.Next(4) * 90);
                         if (c != null) { FitModel(c, targetY: 7.5f + (float)rng2.NextDouble() * 4f); SnapToGround(c, -0.5f); }
                     }
-                    if (rng2.NextDouble() < 0.35)
+                    else if (pick < 0.78)
+                    {
+                        var s = BModel("hd_statue", root.transform,
+                            new Vector3(side * (8.8f + (float)rng2.NextDouble() * 3f), 0f, zi * 4f + (float)rng2.NextDouble() * 2f), side < 0 ? 90f : -90f);
+                        if (s != null) { FitModel(s, targetY: 5.5f + (float)rng2.NextDouble() * 2.5f); SnapToGround(s, -0.5f); }
+                    }
+                    else if (pick < 0.9)
                     {
                         var w = DModel(rng2.NextDouble() < 0.5 ? "wall_arched" : "wall_cracked", root.transform,
                             new Vector3(side * (12.5f + (float)rng2.NextDouble() * 4f), 0f, zi * 4f + 2f + (float)rng2.NextDouble() * 1.5f), side < 0 ? 90f : -90f);
@@ -1549,7 +2014,7 @@ namespace WarriorRun.EditorTools
         static GameObject MakeVaultTile() // grand treasure hall — pillars + arches
         {
             var root = new GameObject("TrackTile");
-            TileFloor(root.transform, RocksPool, new System.Random(23), false);
+            TileFloor(root.transform, RocksPool, new System.Random(23), false, floorModel: "hd_rd_plaza");
             WallRow(root.transform, VaultWallL, VaultWallR);
             return SavePrefab(root, "Tile_Vault");
         }
@@ -1565,6 +2030,7 @@ namespace WarriorRun.EditorTools
             go.transform.localPosition = localPos;
             go.transform.localRotation = Quaternion.Euler(0f, rotY, 0f);
             StripColliders(go);
+            DetailSurfaceUpgrade.ReskinChildren(go);
             return go;
         }
 
@@ -1572,8 +2038,8 @@ namespace WarriorRun.EditorTools
         /// Corner junction tile — a walled plaza where the path bends 90°.
         /// dir=+1 exits east (local +X), dir=-1 exits west. The straight-ahead
         /// corridor dead-ends into a wall with a hidden "DeadEnd" kill trigger;
-        /// a trail signpost, a sandstone exit gate and floating gold chevrons
-        /// all point the way around. TrackManager routes the spine through it:
+        /// a trail signpost and floating gold chevrons point the way around.
+        /// TrackManager routes the spine through it:
         /// entry along +Z, arc about the inner corner, exit along dir*X.
         /// </summary>
         static GameObject MakeTurnTile(int dir, string name)
@@ -1582,34 +2048,36 @@ namespace WarriorRun.EditorTools
             float sx = dir;
             var rng = new System.Random(dir > 0 ? 911 : 733);
 
-            // paved plaza — whole 24x24 junction reads as one surface
-            Prim(PrimitiveType.Cube, "Plaza", mats["Track"], root.transform,
+            // paved plaza — whole 24x24 junction reads as one surface;
+            // Blender flagstone slabs provide the visuals, cubes stay as colliders
+            var plz = Prim(PrimitiveType.Cube, "Plaza", mats["Track"], root.transform,
                 new Vector3(0, -0.28f, 12), new Vector3(24f, 0.6f, 24f), keepCollider: true);
+            plz.GetComponent<MeshRenderer>().enabled = false;
+            BModel("hd_rd_plaza", root.transform, new Vector3(0, 0.02f, 12));
             // raised L-path skin over the walkable arms (entry + exit)
-            Prim(PrimitiveType.Cube, "PathA", mats["TrackDark"], root.transform,
+            var pa = Prim(PrimitiveType.Cube, "PathA", mats["TrackDark"], root.transform,
                 new Vector3(0, -0.10f, 8.5f), new Vector3(9.4f, 0.28f, 17f), keepCollider: true);
-            Prim(PrimitiveType.Cube, "PathB", mats["TrackDark"], root.transform,
+            pa.GetComponent<MeshRenderer>().enabled = false;
+            var spa = BModel("hd_rd_stone", root.transform, new Vector3(0, 0.04f, 8.5f));
+            if (spa != null) { FitModel(spa, targetX: 9.4f, targetZ: 17f); }
+            var pb = Prim(PrimitiveType.Cube, "PathB", mats["TrackDark"], root.transform,
                 new Vector3(sx * 3.65f, -0.10f, 12), new Vector3(16.7f, 0.28f, 9.4f), keepCollider: true);
+            pb.GetComponent<MeshRenderer>().enabled = false;
+            var spb = BModel("hd_rd_stone", root.transform, new Vector3(sx * 3.65f, 0.04f, 12), 90f);
+            if (spb != null)
+            {
+                // rotated 90°: world X shows local Z (length), world Z shows local X (width)
+                var b = ComputeLocalBounds(spb);
+                var ls = spb.transform.localScale;
+                spb.transform.localScale = new Vector3(
+                    b.size.z > 0.01f ? ls.x * (9.4f / b.size.z) : ls.x,
+                    ls.y,
+                    b.size.x > 0.01f ? ls.z * (16.7f / b.size.x) : ls.z);
+            }
             // generous bed under the junction — corner decor and any overshoot
             // land on ground instead of void
             Prim(PrimitiveType.Cube, "UnderBed", mats["StoneDark"], root.transform,
                 new Vector3(0, -0.75f, 20), new Vector3(64f, 0.5f, 40f), keepCollider: true);
-
-            // flagstones down the entry arm and along the exit arm
-            for (int zi = 0; zi < 4; zi++)
-                foreach (var cx in new[] { -2f, 2f })
-                {
-                    var f = DModel("floor_tile_large", root.transform,
-                        new Vector3(cx, 0f, zi * 4f + 2f));
-                    if (f != null) { FitModel(f, targetX: 4f); FitModel(f, targetZ: 4f); FixDungeonMats(f); }
-                }
-            for (int i = 0; i < 3; i++)
-                foreach (var rz in new[] { 10f, 14f })
-                {
-                    var f = DModel("floor_tile_large", root.transform,
-                        new Vector3(sx * (0.7f + i * 4f), 0f, rz), 90f);
-                    if (f != null) { FitModel(f, targetX: 4f); FitModel(f, targetZ: 4f); FixDungeonMats(f); }
-                }
 
             // perimeter walls — the junction is enclosed except the two mouths.
             // A wall authored running along X at rotY=0 keeps that axis at
@@ -1646,10 +2114,10 @@ namespace WarriorRun.EditorTools
                 new Vector3(sx * 8.4f, 0.7f, 3.2f), new Vector3(5.8f, 1.9f, 6.2f));
             Prim(PrimitiveType.Cube, "BastionB", mats["TrackDark"], root.transform,
                 new Vector3(sx * 8.9f, 2.2f, 3.9f), new Vector3(3.8f, 1.5f, 4.0f));
-            var bc = DModel("column", root.transform, new Vector3(sx * 8.6f, 0f, 3.4f), rng.Next(4) * 90);
-            if (bc != null) { FitModel(bc, targetY: 6.2f); SnapToGround(bc, 2.9f); FixDungeonMats(bc); }
-            var rb = DModel("rubble_large", root.transform, new Vector3(sx * 6.1f, 0f, 6.3f), rng.Next(360));
-            if (rb != null) { FitModel(rb, targetY: 0.8f); SnapToGround(rb, 0.04f); FixDungeonMats(rb); }
+            var bc = BModel("hd_column", root.transform, new Vector3(sx * 8.6f, 0f, 3.4f), rng.Next(4) * 90);
+            if (bc != null) { FitModel(bc, targetY: 6.2f); SnapToGround(bc, 2.9f); }
+            var rb = BModel("hd_rubble", root.transform, new Vector3(sx * 6.1f, 0f, 6.3f), rng.Next(360));
+            if (rb != null) { FitModel(rb, targetY: 0.8f); SnapToGround(rb, 0.04f); }
 
             // dead-end kill trigger — invisible, just ahead of the north wall;
             // running straight past the bend hits this and crashes
@@ -1670,18 +2138,6 @@ namespace WarriorRun.EditorTools
                 var tip = sign.transform.Find("ArrowTip");
                 float tipX = tip != null ? tip.localPosition.x : 1f;
                 sign.transform.localRotation = Quaternion.Euler(0f, Mathf.Sign(tipX) == sx ? 0f : 180f, 0f);
-            }
-
-            // sandstone gate framing the exit mouth — walk-through axis is the
-            // gate's Z; measure and rotate so it straddles the exit arm
-            var gate = BModel("bl_gate", root.transform, new Vector3(sx * 11.4f, 0.02f, 12f));
-            if (gate != null)
-            {
-                var gb = ComputeLocalBounds(gate);
-                float yaw = dir * 90f;                    // opening along exit dir
-                if (gb.size.z > gb.size.x) yaw += 90f;    // authored the other way around
-                gate.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
-                SnapToGround(gate, 0.02f);
             }
 
             // floating gold chevrons — one over the bend apex, one on the
@@ -1734,12 +2190,12 @@ namespace WarriorRun.EditorTools
         }
 
         /// <summary>
-        /// Volcanic chasm tile — a narrow basalt bridge (still three lanes,
-        /// but reads tight) with glowing lava channels lapping both sides.
-        /// The lava surface bobs up and down, crust plates drift on it, ember
-        /// particles rise, and a flickering glow lights the bridge. Each
-        /// channel carries a kill trigger so leaving the walkway is death.
-        /// Variant 1 adds a basalt arch over the path.
+        /// Volcanic chasm tile — a single-lane basalt ledge (Temple Run edge
+        /// walk) with molten lava lapping both sides. There is no left/right
+        /// lane here: stepping off the lip drops the runner into the melt,
+        /// where a kill trigger sitting just below walkway level ends the
+        /// run. The surface bobs, crust plates drift, embers rise and a
+        /// flickering glow lights the ledge.
         /// </summary>
         static GameObject MakeLavaTile(int variant, string name)
         {
@@ -1749,32 +2205,62 @@ namespace WarriorRun.EditorTools
             // scorched bed far below — decor lands here, nothing glows through
             Prim(PrimitiveType.Cube, "Bed", mats["BasaltDark"], root.transform,
                 new Vector3(0f, -1.6f, 12f), new Vector3(44f, 0.5f, 26f), keepCollider: true);
-            // narrow walkway — single pinned centre lane, lava within arm's reach
-            Prim(PrimitiveType.Cube, "Path", mats["Basalt"], root.transform,
-                new Vector3(0f, -0.14f, 12f), new Vector3(7.4f, 0.32f, 24f), keepCollider: true);
-            // curb lips framing the drop into lava
+            // the ledge — exactly one lane wide, lava within stumbling distance.
+            // Blender slab carries the glow seams + crumbling rim chips; cube is the collider.
+            var lp = Prim(PrimitiveType.Cube, "Path", mats["Basalt"], root.transform,
+                new Vector3(0f, -0.14f, 12f), new Vector3(2.8f, 0.32f, 24f), keepCollider: true);
+            lp.GetComponent<MeshRenderer>().enabled = false;
+            BModel("hd_rd_lava", root.transform, new Vector3(0f, 0.02f, 12f));
+            // lip curbs hugging the drop on both sides
             foreach (var sx in new[] { -1f, 1f })
                 Prim(PrimitiveType.Cube, "Curb", mats["StoneDark"], root.transform,
-                    new Vector3(sx * 3.85f, 0.02f, 12f), new Vector3(0.35f, 0.12f, 24f), keepCollider: true);
+                    new Vector3(sx * 1.51f, 0.02f, 12f), new Vector3(0.24f, 0.14f, 24f), keepCollider: true);
 
-            // lava channels on both flanks
+            // lava channels hugging the ledge on both flanks
             foreach (var sx in new[] { -1f, 1f })
             {
                 var flow = new GameObject("LavaFlow");
                 flow.transform.SetParent(root.transform, false);
-                flow.transform.localPosition = new Vector3(sx * 8f, 0f, 12f);
+                flow.transform.localPosition = new Vector3(sx * 7.9f, 0f, 12f);
 
-                // molten surface — no collider, it kills via trigger
-                Prim(PrimitiveType.Cube, "Lava", mats["Lava"], flow.transform,
-                    new Vector3(0f, -0.62f, 0f), new Vector3(7.9f, 0.5f, 24f));
-                // dark crust plates drifting on the melt
-                int plates = 4 + rng.Next(3);
+                // molten surface — animated crust-crack shader, world-space
+                // pattern so the flow reads continuous across tile seams
+                MeshGO(lavaSurfMesh, "Lava", mats["LavaSurf"], flow.transform,
+                    new Vector3(0f, -0.52f, 0f), Vector3.one);
+                // obsidian crust plates drifting on the melt (Blender models)
+                var chunkA = AssetDatabase.LoadAssetAtPath<GameObject>(
+                    Root + "/Art/Realistic/Models/bl_lavacrust_a/bl_lavacrust_a.gltf");
+                var chunkB = AssetDatabase.LoadAssetAtPath<GameObject>(
+                    Root + "/Art/Realistic/Models/bl_lavacrust_b/bl_lavacrust_b.gltf");
+                int plates = 6 + rng.Next(3);
                 for (int i = 0; i < plates; i++)
-                    Prim(PrimitiveType.Cube, "Crust", mats["LavaDeep"], flow.transform,
-                        new Vector3(((float)rng.NextDouble() - 0.5f) * 6.2f, -0.30f,
-                            ((float)rng.NextDouble() - 0.5f) * 20f),
-                        new Vector3(1.2f + (float)rng.NextDouble() * 1.8f, 0.12f,
-                            1.4f + (float)rng.NextDouble() * 2.4f));
+                {
+                    var model = (rng.Next(2) == 0 ? chunkA : chunkB) ?? chunkA ?? chunkB;
+                    if (model == null) break;
+                    var go = (GameObject)PrefabUtility.InstantiatePrefab(model, flow.transform);
+                    go.name = "Crust";
+                    float s = 0.5f + (float)rng.NextDouble() * 0.8f;
+                    go.transform.localPosition = new Vector3(
+                        ((float)rng.NextDouble() - 0.5f) * 10.6f, -0.44f,
+                        ((float)rng.NextDouble() - 0.5f) * 21f);
+                    go.transform.localRotation = Quaternion.Euler(
+                        (float)rng.NextDouble() * 10f - 5f, (float)rng.NextDouble() * 360f,
+                        (float)rng.NextDouble() * 10f - 5f);
+                    go.transform.localScale = new Vector3(
+                        s * (0.85f + (float)rng.NextDouble() * 0.5f), s * 0.9f,
+                        s * (0.85f + (float)rng.NextDouble() * 0.5f));
+                    foreach (var r in go.GetComponentsInChildren<Renderer>())
+                        r.sharedMaterial = mats["CrustRock"];
+                    // each raft bobs and rocks on its own drift — the melt moves
+                    var ca = go.AddComponent<ObstacleAnim>();
+                    ca.bobAmp = 0.05f + (float)rng.NextDouble() * 0.09f;
+                    ca.bobFreq = 0.45f + (float)rng.NextDouble() * 0.4f;
+                    ca.rockAxis = new Vector3(
+                        (float)rng.NextDouble() - 0.5f, 0f,
+                        (float)rng.NextDouble() - 0.5f).normalized;
+                    ca.rockDeg = 1.5f + (float)rng.NextDouble() * 3f;
+                    ca.rockFreq = 0.25f + (float)rng.NextDouble() * 0.3f;
+                }
 
                 // the whole channel breathes — surface + crust rise and fall
                 var anim = flow.AddComponent<ObstacleAnim>();
@@ -1784,16 +2270,18 @@ namespace WarriorRun.EditorTools
                 anim.rockDeg = 0.9f;
                 anim.rockFreq = 0.18f;
 
-                // kill trigger — off the walkway means a lava bath
+                // kill trigger — starts just outside the lip and sits below
+                // walkway level, so it only bites once the runner has
+                // actually left the ledge and dipped into the melt
                 var hz = new GameObject("LavaHazard");
                 hz.transform.SetParent(root.transform, false);
                 var hc = hz.AddComponent<BoxCollider>();
                 hc.isTrigger = true;
-                hc.center = new Vector3(sx * 8f, 1.1f, 12f);
-                hc.size = new Vector3(8.1f, 3.2f, 24f);
-                hz.AddComponent<Obstacle>().kind = ObstacleKind.WallBlock;
+                hc.center = new Vector3(sx * 7.9f, -1.15f, 12f);
+                hc.size = new Vector3(12.8f, 1.5f, 24f);
+                hz.AddComponent<Obstacle>().kind = ObstacleKind.Lava;
 
-                Embers(flow.transform, new Vector3(0f, -0.35f, 0f));
+                Embers(flow.transform, new Vector3(0f, -0.3f, 0f));
 
                 // molten glow with a slow breathing flicker
                 var lgo = new GameObject("LavaGlow");
@@ -1814,36 +2302,27 @@ namespace WarriorRun.EditorTools
                 fso.ApplyModifiedPropertiesWithoutUndo();
             }
 
-            // basalt spires + dead trees on the far banks
-            for (int i = 0; i < 5; i++)
+            // basalt columns + obsidian shards + charred trees on the far banks, past the melt
+            for (int i = 0; i < 6; i++)
             {
-                float sx = (i % 2 == 0 ? -1f : 1f) * (13.5f + (float)rng.NextDouble() * 4f);
+                float sx = (i % 2 == 0 ? -1f : 1f) * (15.5f + (float)rng.NextDouble() * 4f);
                 float z = 1.5f + (float)rng.NextDouble() * 21f;
-                float h = 2.2f + (float)rng.NextDouble() * 3.4f;
-                var spire = Prim(PrimitiveType.Cube, "Spire", mats["Basalt"], root.transform,
-                    new Vector3(sx, h * 0.4f, z), new Vector3(0.9f + (float)rng.NextDouble(), h, 0.9f + (float)rng.NextDouble()));
-                spire.transform.localRotation = Quaternion.Euler(
-                    (float)rng.NextDouble() * 14f - 7f, (float)rng.NextDouble() * 360f,
-                    (float)rng.NextDouble() * 14f - 7f);
+                var sp = BModel(new[] { "hd_basalt_hex", "hd_obsidian", "hd_lavabomb" }[rng.Next(3)], root.transform,
+                    new Vector3(sx, -1.35f, z), rng.Next(360));
+                if (sp != null)
+                {
+                    FitModel(sp, targetY: 2.4f + (float)rng.NextDouble() * 3.6f);
+                    sp.transform.localRotation = Quaternion.Euler(
+                        (float)rng.NextDouble() * 10f - 5f, rng.Next(360),
+                        (float)rng.NextDouble() * 10f - 5f);
+                }
             }
             for (int i = 0; i < 3; i++)
             {
-                float sx = (i % 2 == 0 ? 1f : -1f) * (14f + (float)rng.NextDouble() * 3.5f);
-                var t = QModel(QDead[rng.Next(QDead.Length)], root.transform,
+                float sx = (i % 2 == 0 ? 1f : -1f) * (15.5f + (float)rng.NextDouble() * 3.5f);
+                var t = BModel("hd_charred", root.transform,
                     new Vector3(sx, 0f, 3f + (float)rng.NextDouble() * 18f), rng.Next(360));
                 if (t != null) { FitModel(t, targetY: 4.5f + (float)rng.NextDouble() * 1.5f); SnapToGround(t, -1.3f); }
-            }
-
-            // variant B — a basalt arch gate straddling the walkway mid-tile
-            if (variant == 1)
-            {
-                foreach (var sx in new[] { -1f, 1f })
-                {
-                    var col = DModel("column", root.transform, new Vector3(sx * 4.4f, 0f, 12f), rng.Next(4) * 90f);
-                    if (col != null) { FitModel(col, targetY: 5.4f); SnapToGround(col, 0.02f); FixDungeonMats(col); }
-                }
-                Prim(PrimitiveType.Cube, "Lintel", mats["Basalt"], root.transform,
-                    new Vector3(0f, 5.9f, 12f), new Vector3(11f, 1.1f, 1.6f));
             }
 
             return SavePrefab(root, name);
@@ -1870,7 +2349,7 @@ namespace WarriorRun.EditorTools
             em.rateOverTime = 16f;
             var sh = ps.shape;
             sh.shapeType = ParticleSystemShapeType.Box;
-            sh.scale = new Vector3(7f, 0.4f, 22f);
+            sh.scale = new Vector3(11.4f, 0.4f, 22f);
             var col = ps.colorOverLifetime;
             col.enabled = true;
             var g = new Gradient();
@@ -1883,6 +2362,296 @@ namespace WarriorRun.EditorTools
             rend.sharedMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Default-ParticleSystem.mat");
         }
 
+        // ================= zip gorge =================
+        // Rope heights stitch across tile seams: Entry swoops 4.6 -> 2.55,
+        // Mid sags 2.55 -> 2.25 -> 2.55, Exit eases 2.55 -> 2.3 onto the
+        // landing deck (feet end ~0.3 above it — a soft drop).
+
+        static void MakeZipTiles()
+        {
+            prefabs["Tile_Zip_Entry"] = MakeZipTile(ZipKind.Entry, 71, "Tile_Zip_Entry");
+            prefabs["Tile_Zip_Mid"] = MakeZipTile(ZipKind.Mid, 97, "Tile_Zip_Mid");
+            prefabs["Tile_Zip_Exit"] = MakeZipTile(ZipKind.Exit, 113, "Tile_Zip_Exit");
+        }
+
+        enum ZipKind { Entry, Mid, Exit }
+
+        /// <summary>Beam (thin cube) stretched between two local points.</summary>
+        static GameObject Beam(Transform parent, Vector3 a, Vector3 b, float thick, Material mat, string name)
+        {
+            var d = b - a;
+            var go = Prim(PrimitiveType.Cube, name, mat, parent, (a + b) * 0.5f,
+                new Vector3(thick, thick, d.magnitude));
+            go.transform.localRotation = Quaternion.LookRotation(d.normalized);
+            return go;
+        }
+
+        /// <summary>
+        /// Smooth tube along a Catmull-Rom curve through the rope markers, with
+        /// each span's midpoint dipped for a catenary bow. UV v runs along the
+        /// cable so the fiber texture wraps like a real twisted line.
+        /// </summary>
+        static Mesh MakeRopeTube(Vector3[] pts, float radius, int sides, int spanSamples, float sagFrac)
+        {
+            var knots = new List<Vector3>();
+            for (int i = 0; i < pts.Length - 1; i++)
+            {
+                knots.Add(pts[i]);
+                var mid = (pts[i] + pts[i + 1]) * 0.5f;
+                mid.y -= (pts[i + 1] - pts[i]).magnitude * sagFrac;
+                knots.Add(mid);
+            }
+            knots.Add(pts[pts.Length - 1]);
+
+            var path = new List<Vector3>();
+            for (int i = 0; i < knots.Count - 1; i++)
+            {
+                var p0 = knots[Mathf.Max(0, i - 1)];
+                var p1 = knots[i];
+                var p2 = knots[i + 1];
+                var p3 = knots[Mathf.Min(knots.Count - 1, i + 2)];
+                for (int s = 0; s < spanSamples; s++)
+                {
+                    float t = s / (float)spanSamples, t2 = t * t, t3 = t2 * t;
+                    path.Add(0.5f * (2f * p1 + (-p0 + p2) * t
+                        + (2f * p0 - 5f * p1 + 4f * p2 - p3) * t2
+                        + (-p0 + 3f * p1 - 3f * p2 + p3) * t3));
+                }
+            }
+            path.Add(knots[knots.Count - 1]);
+
+            int rings = path.Count;
+            var verts = new Vector3[rings * (sides + 1) + 2];
+            var uvs = new Vector2[verts.Length];
+            var tris = new List<int>();
+            float dist = 0f;
+            for (int i = 0; i < rings; i++)
+            {
+                if (i > 0) dist += Vector3.Distance(path[i - 1], path[i]);
+                var tan = (path[Mathf.Min(i + 1, rings - 1)] - path[Mathf.Max(i - 1, 0)]).normalized;
+                var nrm = Vector3.Cross(Vector3.up, tan);
+                if (nrm.sqrMagnitude < 1e-4f) nrm = Vector3.Cross(Vector3.forward, tan);
+                nrm.Normalize();
+                var bin = Vector3.Cross(tan, nrm);
+                for (int j = 0; j <= sides; j++)
+                {
+                    float a = j * Mathf.PI * 2f / sides;
+                    int vi = i * (sides + 1) + j;
+                    verts[vi] = path[i] + (Mathf.Cos(a) * nrm + Mathf.Sin(a) * bin) * radius;
+                    uvs[vi] = new Vector2(j / (float)sides, dist * 1.35f); // ~0.74m per wrap
+                }
+            }
+            for (int i = 0; i < rings - 1; i++)
+                for (int j = 0; j < sides; j++)
+                {
+                    int a = i * (sides + 1) + j, b = a + sides + 1;
+                    tris.Add(a); tris.Add(a + 1); tris.Add(b);
+                    tris.Add(a + 1); tris.Add(b + 1); tris.Add(b);
+                }
+            int capS = rings * (sides + 1), capE = capS + 1;
+            verts[capS] = path[0]; uvs[capS] = new Vector2(0.5f, 0f);
+            verts[capE] = path[rings - 1]; uvs[capE] = new Vector2(0.5f, dist * 1.35f);
+            for (int j = 0; j < sides; j++)
+            {
+                tris.Add(capS); tris.Add(j + 1); tris.Add(j);
+                int r0 = (rings - 1) * (sides + 1) + j;
+                tris.Add(capE); tris.Add(r0); tris.Add(r0 + 1);
+            }
+            return new Mesh { vertices = verts, uv = uvs, triangles = tris.ToArray() };
+        }
+
+        /// <summary>Rope markers + the fiber-textured tube + the ZipLine component.</summary>
+        static ZipLine AddRope(GameObject root, Vector3[] localPts, bool isExit, string meshName)
+        {
+            var pts = new Transform[localPts.Length];
+            for (int i = 0; i < localPts.Length; i++)
+            {
+                var p = new GameObject("Rp" + i);
+                p.transform.SetParent(root.transform, false);
+                p.transform.localPosition = localPts[i];
+                pts[i] = p.transform;
+            }
+            var tube = MakeRopeTube(localPts, 0.05f, 9, 10, 0.016f);
+            var mesh = SaveMesh(tube, meshName, Root + "/Meshes/" + meshName + ".asset");
+            MeshGO(mesh, "Rope", mats["RopeFiber"], root.transform, Vector3.zero, Vector3.one);
+            var line = root.AddComponent<ZipLine>();
+            line.points = pts;
+            line.isExit = isExit;
+            return line;
+        }
+
+        /// <summary>Wooden mast on a rock islet rising out of the river, holding the cable.</summary>
+        static void ZipMast(GameObject root, float side, float z, float ropeY)
+        {
+            // islet — a rock spire breaching out of the river
+            var isle = MeshGO(rockMesh, "Islet", mats["StoneDark"], root.transform,
+                new Vector3(side * 1.85f, -6.6f, z), new Vector3(2.4f, 11.5f, 2.4f));
+            isle.transform.localRotation = Quaternion.Euler(0f, side * 37f, 0f);
+            // mast pole off the islet tip + crossarm reaching the cable
+            Prim(PrimitiveType.Cylinder, "Mast", mats["WoodDark"], root.transform,
+                new Vector3(side * 1.85f, ropeY * 0.5f - 0.35f, z),
+                new Vector3(0.16f, (ropeY + 0.9f) * 0.5f, 0.16f));
+            Beam(root.transform,
+                new Vector3(side * 1.85f, ropeY + 0.28f, z),
+                new Vector3(side * 0.12f, ropeY - 0.02f, z), 0.08f, mats["WoodDark"], "Crossarm");
+        }
+
+        /// <summary>The shared canyon dressing — walls, river, falls, vines, islets.</summary>
+        static void GorgeShell(GameObject root, System.Random rng)
+        {
+            float R(float a, float b) => a + (float)rng.NextDouble() * (b - a);
+
+            // river far below — wide teal sheet sinking into the fog
+            Prim(PrimitiveType.Cube, "River", mats["GorgeWater"], root.transform,
+                new Vector3(0f, -10.5f, 12f), new Vector3(30f, 0.15f, 26f));
+
+            foreach (var sx in new[] { -1f, 1f })
+            {
+                // main canyon wall + darker inner strata + grass rim cap
+                Prim(PrimitiveType.Cube, "Wall", mats["CanyonBed"], root.transform,
+                    new Vector3(sx * 10.6f, 3.2f, 12f), new Vector3(6.4f, 13f, 25f));
+                Prim(PrimitiveType.Cube, "Strata", mats["StoneDark"], root.transform,
+                    new Vector3(sx * 7.35f, 1.6f, 12f), new Vector3(0.7f, 8.6f, 25f));
+                Prim(PrimitiveType.Cube, "Rim", mats["Grass"], root.transform,
+                    new Vector3(sx * 10.6f, 9.85f, 12f), new Vector3(7f, 0.9f, 25f));
+
+                // jut rocks breaking up the inner face
+                for (int i = 0; i < 3; i++)
+                {
+                    var jut = MeshGO(rockMesh, "Jut", mats["CanyonBed"], root.transform,
+                        new Vector3(sx * R(6.3f, 7.1f), R(1.5f, 7.5f), R(1f, 23f)),
+                        new Vector3(R(0.9f, 1.8f), R(1.2f, 2.4f), R(0.8f, 1.6f)));
+                    jut.transform.localRotation = Quaternion.Euler(R(-8f, 8f), R(0f, 360f), R(-8f, 8f));
+                }
+
+                // waterfall ribbon off the rim — translucent, catches the light
+                if (rng.NextDouble() < 0.7)
+                    Prim(PrimitiveType.Cube, "Fall", mats["Waterfall"], root.transform,
+                        new Vector3(sx * 6.85f, R(3.4f, 4.6f), R(3f, 20f)),
+                        new Vector3(R(0.9f, 1.5f), R(7.5f, 10f), 0.1f));
+
+                // hanging vines swaying under the rim — tuft rides the vine tip
+                for (int i = 0; i < 3; i++)
+                {
+                    float len = R(2.5f, 5.5f);
+                    float vx = sx * R(5.4f, 6.6f);
+                    float vz = R(2f, 22f);
+                    var vine = new GameObject("Vine");
+                    vine.transform.SetParent(root.transform, false);
+                    vine.transform.localPosition = new Vector3(vx, 9.5f, vz);
+                    Prim(PrimitiveType.Cylinder, "Stem", mats["Trunk"], vine.transform,
+                        new Vector3(0f, -len * 0.5f, 0f), new Vector3(0.05f, len * 0.5f, 0.05f));
+                    MeshGO(rockMesh, "Tuft", mats["LeafA"], vine.transform,
+                        new Vector3(0f, -len, 0f), new Vector3(0.3f, 0.18f, 0.3f));
+                    var sway = vine.AddComponent<ObstacleAnim>();
+                    sway.swayAxis = new Vector3(1f, 0f, R(-0.5f, 0.5f)).normalized;
+                    sway.swayDeg = R(3f, 6f);
+                    sway.swayFreq = R(0.6f, 1.1f);
+                }
+            }
+
+            // rock spires rising out of the river — a few breach the gorge
+            // mouth, never in the cable lane
+            for (int i = 0; i < 2; i++)
+            {
+                float sx = (rng.Next(2) == 0 ? -1f : 1f) * R(2.7f, 5.2f);
+                var sp = MeshGO(rockMesh, "Spire", mats["StoneDark"], root.transform,
+                    new Vector3(sx, R(-7.2f, -5.6f), R(3f, 21f)),
+                    new Vector3(R(2f, 3.4f), R(10.5f, 13.5f), R(2f, 3.4f)));
+                sp.transform.localRotation = Quaternion.Euler(R(-6f, 6f), R(0f, 360f), R(-6f, 6f));
+            }
+
+            // mesa + pines cresting the rim — the skyline above the gorge
+            foreach (var sx in new[] { -1f, 1f })
+                for (int i = 0; i < 2; i++)
+                {
+                    var m = BModel(rng.NextDouble() < 0.55
+                            ? new[] { "hd_mesa_a", "hd_rockspire" }[rng.Next(2)]
+                            : HDPines[rng.Next(HDPines.Length)], root.transform,
+                        new Vector3(sx * R(10.2f, 12.5f), 0f, R(2f, 22f)), rng.Next(360));
+                    if (m != null) { FitModel(m, targetY: R(5f, 8.5f)); SnapToGround(m, 10.15f); }
+                }
+        }
+
+        /// <summary>
+        /// A gorge tile: launch deck / open canyon / landing deck around a rope.
+        /// Rope lives on ZipLine markers so PlayerController rides the same
+        /// polyline the art draws.
+        /// </summary>
+        static GameObject MakeZipTile(ZipKind kind, int seed, string name)
+        {
+            var root = new GameObject("TrackTile");
+            var rng = new System.Random(seed);
+
+            if (kind == ZipKind.Entry)
+            {
+                // last solid ground — a basalt deck over the gorge edge
+                var zd = Prim(PrimitiveType.Cube, "Deck", mats["CanyonBed"], root.transform,
+                    new Vector3(0f, -0.16f, 4.4f), new Vector3(7.4f, 0.36f, 9.2f), keepCollider: true);
+                zd.GetComponent<MeshRenderer>().enabled = false;
+                var zsm = BModel("hd_rd_sand", root.transform, new Vector3(0f, 0.02f, 4.4f));
+                if (zsm != null) { FitModel(zsm, targetX: 7.4f); FitModel(zsm, targetZ: 9.2f); }
+                Prim(PrimitiveType.Cube, "DeckLip", mats["StoneDark"], root.transform,
+                    new Vector3(0f, 0.1f, 9.0f), new Vector3(7.4f, 0.14f, 0.5f));
+                // the cliff face shearing off under the deck edge
+                Prim(PrimitiveType.Cube, "Cliff", mats["StoneDark"], root.transform,
+                    new Vector3(0f, -2.9f, 9.6f), new Vector3(7.4f, 5.6f, 1.3f));
+
+                // cable anchor mast — planted at the deck's left edge so the
+                // launch reads without a frame straddling the path
+                AddEntryMast(root);
+
+                var line = AddRope(root,
+                    new[] { new Vector3(0f, 4.6f, 8.35f), new Vector3(0f, 2.55f, 24.05f) }, false, "ZipRope_Entry");
+                // the grab — tall enough that jump/slide (even a late plane)
+                // can't sail past it into the gorge
+                var grab = new GameObject("ZipGrab");
+                grab.transform.SetParent(root.transform, false);
+                var gb = grab.AddComponent<BoxCollider>();
+                gb.isTrigger = true;
+                gb.center = new Vector3(0f, 3.0f, 6.6f);
+                gb.size = new Vector3(7.4f, 6.6f, 3.6f);
+                grab.AddComponent<ZipGrab>().line = line;
+            }
+            else if (kind == ZipKind.Mid)
+            {
+                AddRope(root, new[]
+                {
+                    new Vector3(0f, 2.55f, -0.05f),
+                    new Vector3(0f, 2.25f, 12f),
+                    new Vector3(0f, 2.55f, 24.05f)
+                }, false, "ZipRope_Mid");
+                // a mast islet holding the cable at the seam
+                ZipMast(root, rng.Next(2) == 0 ? -1f : 1f, 0.7f, 2.55f);
+            }
+            else
+            {
+                AddRope(root, new[]
+                {
+                    new Vector3(0f, 2.55f, -0.05f),
+                    new Vector3(0f, 2.3f, 16.5f)
+                }, true, "ZipRope_Exit");
+
+                // landing deck — the rope lets go just above it
+                var zd2 = Prim(PrimitiveType.Cube, "Deck", mats["CanyonBed"], root.transform,
+                    new Vector3(0f, -0.16f, 18.6f), new Vector3(7.4f, 0.36f, 10.8f), keepCollider: true);
+                zd2.GetComponent<MeshRenderer>().enabled = false;
+                var zsm2 = BModel("hd_rd_sand", root.transform, new Vector3(0f, 0.02f, 18.6f));
+                if (zsm2 != null) { FitModel(zsm2, targetX: 7.4f); FitModel(zsm2, targetZ: 10.8f); }
+                Prim(PrimitiveType.Cube, "Cliff", mats["StoneDark"], root.transform,
+                    new Vector3(0f, -2.6f, 13.2f), new Vector3(7.4f, 4.8f, 1.0f));
+
+                // anchor post the cable ties off to, beside the landing
+                Prim(PrimitiveType.Cylinder, "Anchor", mats["WoodDark"], root.transform,
+                    new Vector3(1.55f, 1.15f, 16.4f), new Vector3(0.2f, 2.3f, 0.2f));
+                Beam(root.transform, new Vector3(1.55f, 2.4f, 16.4f),
+                    new Vector3(0.14f, 2.34f, 16.4f), 0.08f, mats["WoodDark"], "AnchorArm");
+            }
+
+            GorgeShell(root, rng);
+            return SavePrefab(root, name);
+        }
+
         static GameObject MakeForestTile(int seed, string name) // OPEN forest — dense stylized woodland
         {
             var root = new GameObject("TrackTile");
@@ -1890,14 +2659,17 @@ namespace WarriorRun.EditorTools
             // wide meadow + raised dirt path — both keep colliders so props/pickups snap to the real surface
             Prim(PrimitiveType.Cube, "Meadow", mats["Grass"], root.transform,
                 new Vector3(0, -0.28f, 12), new Vector3(60f, 0.6f, 24f), keepCollider: true);
-            Prim(PrimitiveType.Cube, "Path", mats["PathDirt"], root.transform,
+            // dirt path — Blender slab on top, cube stays as the collider
+            var fp = Prim(PrimitiveType.Cube, "Path", mats["PathDirt"], root.transform,
                 new Vector3(0, -0.10f, 12), new Vector3(9.4f, 0.28f, 24f), keepCollider: true);
+            fp.GetComponent<MeshRenderer>().enabled = false;
+            BModel("hd_rd_dirt", root.transform, new Vector3(0, 0.04f, 12));
             // pebbles along the path edge
             for (int zi = 0; zi < 12; zi++)
                 foreach (var side in new[] { -1f, 1f })
                     if (rng.NextDouble() < 0.7)
                     {
-                        var s = QModel(QRocks[rng.Next(QRocks.Length)], root.transform,
+                        var s = BModel(HDRocks[rng.Next(HDRocks.Length)], root.transform,
                             new Vector3(side * (4.5f + (float)rng.NextDouble() * 0.5f), 0f, zi * 2f + (float)rng.NextDouble()), rng.Next(360));
                         if (s != null) { FitModel(s, targetY: 0.20f + (float)rng.NextDouble() * 0.18f); SnapToGround(s, 0.04f); }
                     }
@@ -1905,19 +2677,19 @@ namespace WarriorRun.EditorTools
             for (int zi = 0; zi < 13; zi++)
                 foreach (var side in new[] { -1f, 1f })
                 {
-                    var t = QModel(QTrees[rng.Next(QTrees.Length)], root.transform,
+                    var t = BModel(HDTrees[rng.Next(HDTrees.Length)], root.transform,
                         new Vector3(side * (5.5f + (float)rng.NextDouble() * 1.4f), 0f, zi * 1.9f + (float)rng.NextDouble()), rng.Next(360));
                     if (t != null) { FitModel(t, targetY: 4.2f + (float)rng.NextDouble() * 2.6f); SnapToGround(t, 0.02f); }
                 }
             for (int zi = 0; zi < 8; zi++)
                 foreach (var side in new[] { -1f, 1f })
                 {
-                    var t = QModel(rng.NextDouble() < 0.5 ? QPines[rng.Next(QPines.Length)] : QTrees[rng.Next(QTrees.Length)], root.transform,
+                    var t = BModel(rng.NextDouble() < 0.5 ? HDPines[rng.Next(HDPines.Length)] : HDTrees[rng.Next(HDTrees.Length)], root.transform,
                         new Vector3(side * (8.2f + (float)rng.NextDouble() * 2.4f), 0f, zi * 3f + 1.2f + (float)rng.NextDouble() * 1.4f), rng.Next(360));
                     if (t != null) { FitModel(t, targetY: 6f + (float)rng.NextDouble() * 3.5f); SnapToGround(t, 0.02f); }
                     if (rng.NextDouble() < 0.55)
                     {
-                        var t2 = QModel(QTrees[rng.Next(QTrees.Length)], root.transform,
+                        var t2 = BModel(HDTrees[rng.Next(HDTrees.Length)], root.transform,
                             new Vector3(side * (11.5f + (float)rng.NextDouble() * 3.5f), 0f, zi * 3f + (float)rng.NextDouble() * 2f), rng.Next(360));
                         if (t2 != null) { FitModel(t2, targetY: 8f + (float)rng.NextDouble() * 3.5f); SnapToGround(t2, 0.02f); }
                     }
@@ -1927,25 +2699,25 @@ namespace WarriorRun.EditorTools
                 foreach (var side in new[] { -1f, 1f })
                     if (rng.NextDouble() < 0.62)
                     {
-                        var u = QModel(QUnder[rng.Next(QUnder.Length)], root.transform,
+                        var u = BModel(HDUnder[rng.Next(HDUnder.Length)], root.transform,
                             new Vector3(side * (4.2f + (float)rng.NextDouble() * 1.0f), 0f, zi * 1.5f + (float)rng.NextDouble()), rng.Next(360));
-                        if (u != null) { FitModel(u, targetY: 0.5f + (float)rng.NextDouble() * 0.55f); SnapToGround(u, 0.04f); }
+                        if (u != null) { FitModel(u, targetY: 0.5f + (float)rng.NextDouble() * 0.55f); SnapToGround(u, 0.04f); AddSway(u, 2.4f, 1.6f); }
                     }
             // occasional fallen log + big rock deeper in the brush
             for (int zi = 0; zi < 3; zi++)
                 foreach (var side in new[] { -1f, 1f })
                     if (rng.NextDouble() < 0.5)
                     {
-                        var p = KModel(rng.NextDouble() < 0.5 ? "log_large" : "log_stack", root.transform,
+                        var p = BModel(new[] { "hd_log", "hd_stump", "hd_dead" }[rng.Next(3)], root.transform,
                             new Vector3(side * (5.6f + (float)rng.NextDouble() * 1.6f), 0f, zi * 7f + (float)rng.NextDouble() * 4f), rng.Next(360));
-                        if (p != null) { FitModel(p, targetY: 0.7f + (float)rng.NextDouble() * 0.5f); SnapToGround(p, 0.02f); }
+                        if (p != null) { FitModel(p, targetY: 0.7f + (float)rng.NextDouble() * 0.9f); SnapToGround(p, 0.02f); }
                     }
             // horizon wall — colossal treeline closing the skyline so no void shows through fog
             for (int zi = 0; zi < 4; zi++)
                 foreach (var side in new[] { -1f, 1f })
                     if (rng.NextDouble() < 0.85)
                     {
-                        var h = QModel(rng.NextDouble() < 0.5 ? QPines[rng.Next(QPines.Length)] : QTrees[rng.Next(QTrees.Length)], root.transform,
+                        var h = BModel(rng.NextDouble() < 0.5 ? HDPines[rng.Next(HDPines.Length)] : HDTrees[rng.Next(HDTrees.Length)], root.transform,
                             new Vector3(side * (15.5f + (float)rng.NextDouble() * 7f), 0f, zi * 6f + (float)rng.NextDouble() * 3f), rng.Next(360));
                         if (h != null) { FitModel(h, targetY: 11f + (float)rng.NextDouble() * 5f); SnapToGround(h, -0.3f); AddSway(h, 0.5f, 0.5f); }
                     }
@@ -1959,22 +2731,24 @@ namespace WarriorRun.EditorTools
             // wide desert bed + raised sandy run — both collidable for prop snapping
             Prim(PrimitiveType.Cube, "DesertBed", mats["CanyonBed"], root.transform,
                 new Vector3(0, -0.28f, 12), new Vector3(64f, 0.6f, 24f), keepCollider: true);
-            Prim(PrimitiveType.Cube, "Path", mats["PathSand"], root.transform,
+            var cp = Prim(PrimitiveType.Cube, "Path", mats["PathSand"], root.transform,
                 new Vector3(0, -0.10f, 12), new Vector3(9.4f, 0.28f, 24f), keepCollider: true);
+            cp.GetComponent<MeshRenderer>().enabled = false;
+            BModel("hd_rd_sand", root.transform, new Vector3(0, 0.04f, 12));
             // sun-bleached stones along the run edge
             for (int zi = 0; zi < 10; zi++)
                 foreach (var side in new[] { -1f, 1f })
                     if (rng.NextDouble() < 0.6)
                     {
-                        var s = QModel(QRocks[rng.Next(QRocks.Length)], root.transform,
-                            new Vector3(side * (4.4f + (float)rng.NextDouble() * 0.6f), 0f, zi * 2.4f + (float)rng.NextDouble() * 1.5f), rng.Next(360), rockTex: "Rocks_Desert");
+                        var s = BModel(new[] { "hd_rock_desert", "hd_rockpile" }[rng.Next(2)], root.transform,
+                            new Vector3(side * (4.4f + (float)rng.NextDouble() * 0.6f), 0f, zi * 2.4f + (float)rng.NextDouble() * 1.5f), rng.Next(360));
                         if (s != null) { FitModel(s, targetY: 0.25f + (float)rng.NextDouble() * 0.35f); SnapToGround(s, 0.04f); }
                     }
             // low canyon rims hugging the run — frame the corridor, leave the skyline open
             for (int zi = 0; zi < 13; zi++)
                 foreach (var side in new[] { -1f, 1f })
                 {
-                    var r = KModel(CanyonCliffs[rng.Next(CanyonCliffs.Length)], root.transform,
+                    var r = BModel(HDCliff[rng.Next(HDCliff.Length)], root.transform,
                         new Vector3(side * (5.1f + (float)rng.NextDouble() * 1.2f), 0f, zi * 1.9f + (float)rng.NextDouble() * 0.9f), rng.Next(4) * 90);
                     if (r != null) { FitModel(r, targetY: 2.6f + (float)rng.NextDouble() * 1.8f); SnapToGround(r, 0.0f); }
                 }
@@ -1986,7 +2760,7 @@ namespace WarriorRun.EditorTools
                     double roll = rng.NextDouble();
                     if (roll < 0.24)
                     {
-                        var m = KModel(CanyonCliffs[rng.Next(CanyonCliffs.Length)], root.transform,
+                        var m = BModel(HDCliff[rng.Next(HDCliff.Length)], root.transform,
                             new Vector3(side * (7.2f + (float)rng.NextDouble() * 4.6f), 0f, z), rng.Next(360));
                         if (m != null) { FitModel(m, targetY: 2.2f + (float)rng.NextDouble() * 1.8f); SnapToGround(m, 0.02f); }
                     }
@@ -2004,21 +2778,21 @@ namespace WarriorRun.EditorTools
                     }
                     else if (roll < 0.80)
                     {
-                        var c = KModel(rng.NextDouble() < 0.55 ? "cactus_tall" : "cactus_short", root.transform,
+                        var c = BModel(rng.NextDouble() < 0.55 ? "hd_saguaro" : "hd_barrelcactus", root.transform,
                             new Vector3(side * (5.7f + (float)rng.NextDouble() * 3f), 0f, z), rng.Next(360));
-                        if (c != null) { FitModel(c, targetY: 0.9f + (float)rng.NextDouble() * 1.4f); SnapToGround(c, 0.02f); AddSway(c, 3.2f, 1.6f); }
+                        if (c != null) { FitModel(c, targetY: 0.9f + (float)rng.NextDouble() * 1.6f); SnapToGround(c, 0.02f); AddSway(c, 2.4f, 1.6f); }
                     }
                     else if (roll < 0.92)
                     {
-                        var k = QModel(QRocks[rng.Next(QRocks.Length)], root.transform,
-                            new Vector3(side * (5.8f + (float)rng.NextDouble() * 4f), 0f, z), rng.Next(360), rockTex: "Rocks_Desert");
+                        var k = BModel(new[] { "hd_rock_desert", "hd_rockpile", "hd_skull", "hd_drybrush" }[rng.Next(4)], root.transform,
+                            new Vector3(side * (5.8f + (float)rng.NextDouble() * 4f), 0f, z), rng.Next(360));
                         if (k != null) { FitModel(k, targetY: 0.6f + (float)rng.NextDouble() * 1.1f); SnapToGround(k, 0.02f); }
                     }
                     else
                     {
-                        var f = KModel(rng.NextDouble() < 0.5 ? "campfire_stones" : "campfire_logs", root.transform,
+                        var f = BModel("hd_drybrush", root.transform,
                             new Vector3(side * (6.4f + (float)rng.NextDouble() * 2.2f), 0f, z), rng.Next(360));
-                        if (f != null) { FitModel(f, targetY: 0.4f + (float)rng.NextDouble() * 0.3f); SnapToGround(f, 0.02f); }
+                        if (f != null) { FitModel(f, targetY: 0.4f + (float)rng.NextDouble() * 0.4f); SnapToGround(f, 0.02f); AddSway(f, 4f, 2.0f); }
                     }
                 }
             // dunes softening the mid-ground bed
@@ -2034,13 +2808,13 @@ namespace WarriorRun.EditorTools
                 {
                     if (rng.NextDouble() < 0.8)
                     {
-                        var m = KModel(CanyonCliffs[rng.Next(CanyonCliffs.Length)], root.transform,
+                        var m = BModel(HDCliff[rng.Next(HDCliff.Length)], root.transform,
                             new Vector3(side * (13.5f + (float)rng.NextDouble() * 5f), 0f, zi * 6f + (float)rng.NextDouble() * 3f), rng.Next(4) * 90);
                         if (m != null) { FitModel(m, targetY: 6f + (float)rng.NextDouble() * 4.5f); SnapToGround(m, -0.1f); }
                     }
                     if (rng.NextDouble() < 0.55)
                     {
-                        var r2 = KModel(CanyonCliffs[rng.Next(CanyonCliffs.Length)], root.transform,
+                        var r2 = BModel(HDCliff[rng.Next(HDCliff.Length)], root.transform,
                             new Vector3(side * (12.5f + (float)rng.NextDouble() * 3.5f), 0f, zi * 6f + 1.5f + (float)rng.NextDouble() * 1.4f), rng.Next(4) * 90);
                         if (r2 != null) { FitModel(r2, targetY: 7.5f + (float)rng.NextDouble() * 3.5f); SnapToGround(r2, 0.0f); }
                     }
@@ -2050,7 +2824,7 @@ namespace WarriorRun.EditorTools
                 foreach (var side in new[] { -1f, 1f })
                     if (rng.NextDouble() < 0.75)
                     {
-                        var m = KModel(CanyonCliffs[rng.Next(CanyonCliffs.Length)], root.transform,
+                        var m = BModel(new[] { "hd_mesa_a", "hd_mesa_b" }[rng.Next(2)], root.transform,
                             new Vector3(side * (21f + (float)rng.NextDouble() * 9f), 0f, zi * 8f + (float)rng.NextDouble() * 5f), rng.Next(4) * 90);
                         if (m != null) { FitModel(m, targetY: 10f + (float)rng.NextDouble() * 8f); SnapToGround(m, -0.2f); }
                     }
@@ -2064,39 +2838,38 @@ namespace WarriorRun.EditorTools
             // plaza bed under everything + raised asphalt road + sidewalks (all collide so props snap)
             Prim(PrimitiveType.Cube, "Plaza", mats["Plaza"], root.transform,
                 new Vector3(0, -0.45f, 12), new Vector3(64f, 0.6f, 24f), keepCollider: true);
-            Prim(PrimitiveType.Cube, "Road", mats["RoadAsphalt"], root.transform,
+            // asphalt + sidewalks as Blender slabs — cubes stay as colliders
+            var rd = Prim(PrimitiveType.Cube, "Road", mats["RoadAsphalt"], root.transform,
                 new Vector3(0, -0.08f, 12), new Vector3(9.6f, 0.2f, 24f), keepCollider: true);
-            Prim(PrimitiveType.Cube, "WalkL", mats["Sidewalk"], root.transform,
+            rd.GetComponent<MeshRenderer>().enabled = false;
+            BModel("hd_rd_city", root.transform, new Vector3(0, 0.02f, 12));
+            var wl = Prim(PrimitiveType.Cube, "WalkL", mats["Sidewalk"], root.transform,
                 new Vector3(-5.55f, 0.02f, 12), new Vector3(2.1f, 0.24f, 24f), keepCollider: true);
-            Prim(PrimitiveType.Cube, "WalkR", mats["Sidewalk"], root.transform,
+            wl.GetComponent<MeshRenderer>().enabled = false;
+            BModel("hd_rd_walk", root.transform, new Vector3(-5.55f, 0.14f, 12));
+            var wr = Prim(PrimitiveType.Cube, "WalkR", mats["Sidewalk"], root.transform,
                 new Vector3(5.55f, 0.02f, 12), new Vector3(2.1f, 0.24f, 24f), keepCollider: true);
-            // lane dashes + solid edge lines
-            for (int zi = 0; zi < 8; zi++)
-                foreach (var x in new[] { -1.1f, 1.1f })
-                    Prim(PrimitiveType.Cube, "Dash", mats["LanePaint"], root.transform,
-                        new Vector3(x, 0.035f, zi * 3f + 1.4f), new Vector3(0.14f, 0.012f, 1.3f));
-            foreach (var x in new[] { -4.42f, 4.42f })
-                Prim(PrimitiveType.Cube, "EdgeLine", mats["LanePaint"], root.transform,
-                    new Vector3(x, 0.032f, 12), new Vector3(0.12f, 0.012f, 24f));
+            wr.GetComponent<MeshRenderer>().enabled = false;
+            BModel("hd_rd_walk", root.transform, new Vector3(5.55f, 0.14f, 12), 180f);
             // building rows facing the road; a second, taller skyline row behind
             for (int zi = 0; zi < 7; zi++)
                 foreach (var side in new[] { -1f, 1f })
                 {
                     if (rng.NextDouble() < 0.85)
                     {
-                        var b = CModel(CBuildings[rng.Next(CBuildings.Length)], root.transform,
+                        var b = BModel(HDBldg[rng.Next(HDBldg.Length)], root.transform,
                             new Vector3(side * (8.3f + (float)rng.NextDouble() * 1.6f), 0f, zi * 3.4f + (float)rng.NextDouble() * 1.4f), side < 0 ? 90f : -90f);
                         if (b != null) { FitModel(b, targetY: 5.2f + (float)rng.NextDouble() * 3.2f); SnapToGround(b, 0.02f); }
                     }
                     if (rng.NextDouble() < 0.5)
                     {
-                        var b2 = CModel(CBuildings[rng.Next(CBuildings.Length)], root.transform,
+                        var b2 = BModel(HDBldg[rng.Next(HDBldg.Length)], root.transform,
                             new Vector3(side * (12f + (float)rng.NextDouble() * 2.6f), 0f, zi * 3.4f + 1.6f + (float)rng.NextDouble() * 1.4f), side < 0 ? 90f : -90f);
                         if (b2 != null) { FitModel(b2, targetY: 7.5f + (float)rng.NextDouble() * 4f); SnapToGround(b2, 0.02f); }
                     }
                     if (rng.NextDouble() < 0.4) // third skyline row — towers fading into the haze
                     {
-                        var b3 = CModel(CBuildingsNB[rng.Next(CBuildingsNB.Length)], root.transform,
+                        var b3 = BModel(HDBldgFar[rng.Next(HDBldgFar.Length)], root.transform,
                             new Vector3(side * (16.5f + (float)rng.NextDouble() * 5f), 0f, zi * 3.4f + 0.8f + (float)rng.NextDouble() * 1.6f), side < 0 ? 90f : -90f);
                         if (b3 != null) { FitModel(b3, targetY: 10f + (float)rng.NextDouble() * 5f); SnapToGround(b3, -0.4f); }
                     }
@@ -2105,16 +2878,24 @@ namespace WarriorRun.EditorTools
             for (int zi = 0; zi < 5; zi++)
             {
                 float side = zi % 2 == 0 ? -1f : 1f;
-                var l = CModel("streetlight", root.transform,
-                    new Vector3(side * 4.95f, 0f, zi * 5f + 0.8f), side < 0 ? 180f : 0f);
-                if (l != null) { FitModel(l, targetY: 3.1f); SnapToGround(l, 0.14f); }
+                var l = BModel(zi % 3 == 2 ? "hd_trafficlight" : "hd_streetlamp", root.transform,
+                    new Vector3(side * 4.95f, 0f, zi * 5f + 0.8f), side < 0 ? 0f : 180f);
+                if (l != null) { FitModel(l, targetY: 3.4f); SnapToGround(l, 0.14f); }
+            }
+            // a bus shelter every other tile for a lived-in street
+            if (rng.NextDouble() < 0.5)
+            {
+                float side = rng.NextDouble() < 0.5 ? -1f : 1f;
+                var bs = BModel("hd_busstop", root.transform,
+                    new Vector3(side * 6.1f, 0f, 7f + (float)rng.NextDouble() * 8f), side < 0 ? 90f : -90f);
+                if (bs != null) { FitModel(bs, targetY: 2.4f); SnapToGround(bs, 0.14f); }
             }
             // parked cars hugging the curb
             for (int zi = 0; zi < 4; zi++)
                 if (rng.NextDouble() < 0.55)
                 {
                     float side = rng.NextDouble() < 0.5 ? -1f : 1f;
-                    var c = CModel(CCars[rng.Next(CCars.Length)], root.transform,
+                    var c = BModel(HDCars[rng.Next(HDCars.Length)], root.transform,
                         new Vector3(side * 4.15f, 0f, zi * 5.6f + 1.5f + (float)rng.NextDouble() * 2f), rng.NextDouble() < 0.5 ? 0f : 180f);
                     if (c != null) { FitModel(c, targetY: 1.05f); SnapToGround(c, 0.02f); }
                 }
@@ -2123,7 +2904,7 @@ namespace WarriorRun.EditorTools
                 foreach (var side in new[] { -1f, 1f })
                     if (rng.NextDouble() < 0.4)
                     {
-                        var p = CModel(CSidewalk[rng.Next(CSidewalk.Length)], root.transform,
+                        var p = BModel(HDWalk[rng.Next(HDWalk.Length)], root.transform,
                             new Vector3(side * (5.1f + (float)rng.NextDouble() * 1.2f), 0f, zi * 4f + (float)rng.NextDouble() * 2f), rng.Next(360));
                         if (p != null) { FitModel(p, targetY: 0.5f + (float)rng.NextDouble() * 0.7f); SnapToGround(p, 0.14f); }
                     }
@@ -2133,8 +2914,8 @@ namespace WarriorRun.EditorTools
         static GameObject MakeLowBarrier()
         {
             var root = new GameObject("LowBarrier");
-            var m = DModel("barrier_half", root.transform, Vector3.zero);
-            if (m != null) { FixDungeonMats(m); FitModel(m, targetX: 2.2f); }
+            var m = BModel("hd_boulder", root.transform, new Vector3(0, -0.05f, 0));
+            if (m != null) FitModel(m, targetX: 2.1f, targetY: 1.0f);
             AddTrigger(root, new Vector3(0, 0.55f, 0), new Vector3(2.2f, 1.1f, 0.6f));
             root.AddComponent<Obstacle>().kind = ObstacleKind.LowBarrier;
             return SavePrefab(root, "LowBarrier");
@@ -2157,11 +2938,15 @@ namespace WarriorRun.EditorTools
         static GameObject MakeHighBarrier()
         {
             var root = new GameObject("HighBarrier");
-            // long table across the lane — slide underneath the tabletop
-            var m = DModel("table_long", root.transform, Vector3.zero, 90f);
-            if (m != null) { FixDungeonMats(m); m.transform.localScale = new Vector3(0.55f, 1f, 1f); }
-            // kill zone only in the tabletop band — sliding clears it, a clean jump tops it
-            AddTrigger(root, new Vector3(0, 0.92f, 0), new Vector3(2.2f, 0.4f, 1.6f));
+            // fallen log held up by two stumps — slide underneath the beam
+            var pl = BModel("hd_stump", root.transform, new Vector3(-1.0f, 0f, 0), 15f);
+            var pr = BModel("hd_stump", root.transform, new Vector3(1.0f, 0f, 0), 200f);
+            if (pl != null) FitModel(pl, targetY: 1.0f);
+            if (pr != null) FitModel(pr, targetY: 1.0f);
+            var m = BModel("hd_log", root.transform, new Vector3(0, 0.85f, 0));
+            if (m != null) FitModel(m, targetX: 2.3f);
+            // kill zone only in the beam band — sliding clears it, a clean jump tops it
+            AddTrigger(root, new Vector3(0, 1.1f, 0), new Vector3(2.2f, 0.55f, 1.0f));
             root.AddComponent<Obstacle>().kind = ObstacleKind.HighBarrier;
             return SavePrefab(root, "HighBarrier");
         }
@@ -2169,8 +2954,8 @@ namespace WarriorRun.EditorTools
         static GameObject MakeWall()
         {
             var root = new GameObject("WallBlock");
-            var m = DModel("crates_stacked", root.transform, Vector3.zero);
-            if (m != null) { FixDungeonMats(m); FitModel(m, targetX: 2.0f); }
+            var m = BModel("hd_boulder_big", root.transform, new Vector3(0, -0.1f, 0));
+            if (m != null) FitModel(m, targetX: 2.1f, targetY: 2.4f);
             AddTrigger(root, new Vector3(0, 1.1f, 0), new Vector3(2.0f, 2.2f, 1.9f));
             root.AddComponent<Obstacle>().kind = ObstacleKind.WallBlock;
             return SavePrefab(root, "WallBlock");
@@ -2227,7 +3012,7 @@ namespace WarriorRun.EditorTools
         static GameObject MakeLogBarrier() // fallen log across the lane — jump it
         {
             var root = new GameObject("LogBarrier");
-            var m = KModel("log_large", root.transform, new Vector3(0, 0.4f, 0), 90f);
+            var m = BModel("hd_log", root.transform, new Vector3(0, 0.4f, 0));
             if (m != null) { FitModel(m, targetX: 2.3f); FitModel(m, targetY: 0.9f); }
             AddTrigger(root, new Vector3(0, 0.55f, 0), new Vector3(2.2f, 1.1f, 0.9f));
             root.AddComponent<Obstacle>().kind = ObstacleKind.LowBarrier;
@@ -2237,7 +3022,7 @@ namespace WarriorRun.EditorTools
         static GameObject MakeRockJump() // knee-high boulder — jump it
         {
             var root = new GameObject("RockJump");
-            var m = KModel("cliff_half_rock", root.transform, Vector3.zero);
+            var m = BModel("hd_boulder", root.transform, Vector3.zero);
             if (m != null) { FitModel(m, targetX: 2.1f); FitModel(m, targetY: 1.1f); }
             AddTrigger(root, new Vector3(0, 0.55f, 0), new Vector3(2.1f, 1.1f, 1.1f));
             root.AddComponent<Obstacle>().kind = ObstacleKind.LowBarrier;
@@ -2247,7 +3032,7 @@ namespace WarriorRun.EditorTools
         static GameObject MakeRockBlock() // tall boulder — dodge it
         {
             var root = new GameObject("RockBlock");
-            var m = KModel("cliff_block_rock", root.transform, Vector3.zero);
+            var m = BModel("hd_boulder_big", root.transform, Vector3.zero);
             if (m != null) { FitModel(m, targetX: 2f); FitModel(m, targetY: 2.4f); }
             AddTrigger(root, new Vector3(0, 1.1f, 0), new Vector3(2f, 2.2f, 1.3f));
             root.AddComponent<Obstacle>().kind = ObstacleKind.WallBlock;
@@ -2257,7 +3042,7 @@ namespace WarriorRun.EditorTools
         static GameObject MakeCactusBlock() // tall cactus — dodge it
         {
             var root = new GameObject("CactusBlock");
-            var m = KModel("cactus_tall", root.transform, Vector3.zero);
+            var m = BModel("hd_saguaro", root.transform, Vector3.zero);
             if (m != null) { FitModel(m, targetX: 1.9f); FitModel(m, targetY: 2.5f); }
             AddTrigger(root, new Vector3(0, 1.15f, 0), new Vector3(1.9f, 2.3f, 1f));
             root.AddComponent<Obstacle>().kind = ObstacleKind.WallBlock;
@@ -2660,13 +3445,12 @@ namespace WarriorRun.EditorTools
         static GameObject MakeWaterTile() // pale flume channel with a flowing water film
         {
             var root = new GameObject("TrackTile");
-            // slide channel floor — the runner's surface (collider kept)
-            Prim(PrimitiveType.Cube, "SlideFloor", mats["SlideFloor"], root.transform, new Vector3(0, -0.28f, 12), new Vector3(9.4f, 0.6f, 24f), keepCollider: true);
+            // slide channel floor — Blender slab (runnels + foam baked in), cube stays as collider
+            var sf = Prim(PrimitiveType.Cube, "SlideFloor", mats["SlideFloor"], root.transform, new Vector3(0, -0.28f, 12), new Vector3(9.4f, 0.6f, 24f), keepCollider: true);
+            sf.GetComponent<MeshRenderer>().enabled = false;
+            BModel("hd_rd_slide", root.transform, new Vector3(0, 0.02f, 12));
             // shallow translucent water film across the whole channel
             Prim(PrimitiveType.Cube, "WaterFilm", mats["WaterFlow"], root.transform, new Vector3(0, 0.035f, 12), new Vector3(8.0f, 0.04f, 24f));
-            // deeper runnels marking each lane
-            foreach (var x in new[] { -2.2f, 0f, 2.2f })
-                Prim(PrimitiveType.Cube, "Runnel", mats["WaterDeep"], root.transform, new Vector3(x, 0.05f, 12), new Vector3(0.55f, 0.02f, 24f));
             // flume walls — the water-slide half-pipe sides
             Prim(PrimitiveType.Cube, "FlumeL", mats["SlideWall"], root.transform, new Vector3(-4.6f, 0.55f, 12), new Vector3(0.55f, 1.5f, 24f));
             Prim(PrimitiveType.Cube, "FlumeR", mats["SlideWall"], root.transform, new Vector3(4.6f, 0.55f, 12), new Vector3(0.55f, 1.5f, 24f));
@@ -2684,13 +3468,13 @@ namespace WarriorRun.EditorTools
                 {
                     if (rng.NextDouble() < 0.8)
                     {
-                        var p = QModel(QPalm[rng.Next(QPalm.Length)], root.transform,
+                        var p = BModel(HDPalm[rng.Next(HDPalm.Length)], root.transform,
                             new Vector3(side * (5.8f + (float)rng.NextDouble() * 2.6f), 0f, zi * 2.7f + (float)rng.NextDouble() * 1.4f), rng.Next(360));
                         if (p != null) { FitModel(p, targetY: 3.4f + (float)rng.NextDouble() * 2.2f); SnapToGround(p, -0.5f); }
                     }
                     if (rng.NextDouble() < 0.5)
                     {
-                        var p2 = QModel(QPalm[rng.Next(QPalm.Length)], root.transform,
+                        var p2 = BModel(HDPalm[rng.Next(HDPalm.Length)], root.transform,
                             new Vector3(side * (9.5f + (float)rng.NextDouble() * 3f), 0f, zi * 2.7f + 1.3f + (float)rng.NextDouble()), rng.Next(360));
                         if (p2 != null) { FitModel(p2, targetY: 4.6f + (float)rng.NextDouble() * 2.4f); SnapToGround(p2, -0.5f); }
                     }
@@ -2699,7 +3483,9 @@ namespace WarriorRun.EditorTools
                 foreach (var side in new[] { -1f, 1f })
                     if (rng.NextDouble() < 0.5)
                     {
-                        var b = QModel(new[] { "Bush", "Bush_Flowers", "Plant_Flowers", "Flower_2_Clump", "Flower_4_Clump", "Rock_2", "Rock_4" }[rng.Next(7)], root.transform,
+                        var b = BModel(rng.NextDouble() < 0.55
+                                ? HDBeach[rng.Next(HDBeach.Length)]
+                                : HDUnder[rng.Next(HDUnder.Length)], root.transform,
                             new Vector3(side * (5.4f + (float)rng.NextDouble() * 4f), 0f, zi * 2.4f + (float)rng.NextDouble()), rng.Next(360));
                         if (b != null) { FitModel(b, targetY: 0.4f + (float)rng.NextDouble() * 0.8f); SnapToGround(b, -0.5f); }
                     }
@@ -2709,7 +3495,7 @@ namespace WarriorRun.EditorTools
                 {
                     if (rng.NextDouble() < 0.8)
                     {
-                        var h = QModel(QPalm[rng.Next(QPalm.Length)], root.transform,
+                        var h = BModel(HDPalm[rng.Next(HDPalm.Length)], root.transform,
                             new Vector3(side * (13.5f + (float)rng.NextDouble() * 6f), 0f, zi * 6f + (float)rng.NextDouble() * 3f), rng.Next(360));
                         if (h != null) { FitModel(h, targetY: 7f + (float)rng.NextDouble() * 3.5f); SnapToGround(h, -0.6f); AddSway(h, 1.2f, 0.7f); }
                     }
@@ -2820,11 +3606,24 @@ namespace WarriorRun.EditorTools
             return SavePrefab(root, name);
         }
 
+        /// <summary>Blender HD pack decor prefab — Art/Realistic/Models/hd_*, fit to a target height.</summary>
+        static GameObject MakeDecorR(string id, string name, float targetY, float rotY = 0f, float sway = 0f, float swayFreq = 0.9f)
+        {
+            var root = new GameObject(name);
+            var m = BModel(id, root.transform, Vector3.zero, rotY);
+            if (m != null)
+            {
+                if (targetY > 0f) FitModel(m, targetY: targetY);
+                AddSway(m, sway, swayFreq);
+            }
+            return SavePrefab(root, name);
+        }
+
         // city obstacles — bench to jump, dumpster/crates/parked car to dodge
         static GameObject MakeBenchBlock()
         {
             var root = new GameObject("C_Bench");
-            var m = CModel("bench", root.transform, Vector3.zero, 0f);
+            var m = BModel("hd_bench", root.transform, Vector3.zero, 0f);
             if (m != null) FitModel(m, targetY: 1.35f);
             var box = root.AddComponent<BoxCollider>();
             box.center = new Vector3(0f, 0.55f, 0f);
@@ -2835,7 +3634,7 @@ namespace WarriorRun.EditorTools
         static GameObject MakeDumpsterBlock()
         {
             var root = new GameObject("C_Dumpster");
-            var m = CModel("dumpster", root.transform, Vector3.zero, 0f);
+            var m = BModel("hd_dumpster", root.transform, Vector3.zero, 0f);
             if (m != null) FitModel(m, targetY: 1.6f);
             var box = root.AddComponent<BoxCollider>();
             box.center = new Vector3(0f, 0.75f, 0f);
@@ -2846,12 +3645,10 @@ namespace WarriorRun.EditorTools
         static GameObject MakeCrateStack()
         {
             var root = new GameObject("C_Crates");
-            var a = CModel("box_A", root.transform, new Vector3(-0.3f, 0f, 0f), 15f);
-            var bb = CModel("box_B", root.transform, new Vector3(0.35f, 0f, 0.15f), -20f);
-            var c = CModel("box_A", root.transform, new Vector3(0f, 1.05f, -0.3f), 60f);
-            if (a != null) FitModel(a, targetY: 0.75f);
-            if (bb != null) FitModel(bb, targetY: 0.9f);
-            if (c != null) FitModel(c, targetY: 0.75f);
+            var a = BModel("hd_crates", root.transform, new Vector3(-0.3f, 0f, 0f), 15f);
+            var bb = BModel("hd_crates", root.transform, new Vector3(0.45f, 0f, 0.25f), -20f);
+            if (a != null) FitModel(a, targetY: 0.95f);
+            if (bb != null) FitModel(bb, targetY: 0.8f);
             var box = root.AddComponent<BoxCollider>();
             box.center = new Vector3(0f, 0.85f, 0f);
             box.size = new Vector3(1.9f, 1.65f, 1.7f);
@@ -2861,8 +3658,8 @@ namespace WarriorRun.EditorTools
         static GameObject MakeCarBlock()
         {
             var root = new GameObject("C_CarBlock");
-            var m = CModel("car_hatchback", root.transform, Vector3.zero, 90f); // sideways across the lane
-            if (m != null) FitModel(m, targetY: 1.0f);
+            var m = BModel("hd_sedan", root.transform, Vector3.zero, 90f); // sideways across the lane
+            if (m != null) FitModel(m, targetY: 1.1f);
             var box = root.AddComponent<BoxCollider>();
             box.center = new Vector3(0f, 0.55f, 0f);
             box.size = new Vector3(2.2f, 1.05f, 1.5f);
@@ -2874,7 +3671,7 @@ namespace WarriorRun.EditorTools
         static GameObject MakeStumpBlock()
         {
             var root = new GameObject("N_Stump");
-            var m = QModel("Rock_1", root.transform, Vector3.zero, 0f, rockTex: "Rocks_Dark_Green");
+            var m = BModel("hd_stump", root.transform, Vector3.zero, 0f);
             if (m != null) FitModel(m, targetY: 1.15f);
             var box = root.AddComponent<BoxCollider>();
             box.center = new Vector3(0f, 0.6f, 0f);
@@ -2886,7 +3683,7 @@ namespace WarriorRun.EditorTools
         static GameObject MakeDeadFall()
         {
             var root = new GameObject("N_DeadFall");
-            var m = QModel("DeadTree_9", root.transform, new Vector3(0f, 0.85f, 0f), 0f);
+            var m = BModel("hd_dead", root.transform, new Vector3(0f, 0.85f, 0f), 0f);
             if (m != null) { FitModel(m, targetY: 2.6f); m.transform.localRotation = Quaternion.Euler(0f, 0f, 86f); }
             var box = root.AddComponent<BoxCollider>();
             box.center = new Vector3(0f, 0.85f, 0f);
@@ -3345,14 +4142,14 @@ namespace WarriorRun.EditorTools
             tm.turnRightPrefab = prefabs["Tile_TurnR"];
             tm.powerUpPrefabs = new[] { prefabs["PU_Magnet"], prefabs["PU_Shield"], prefabs["PU_Boost"],
                 prefabs["PU_Ghost"], prefabs["PU_Spring"], prefabs["PU_Giant"], prefabs["PU_Car"], prefabs["PU_Plane"] };
-            tm.decorPrefabs = new[] { prefabs["D_Pillar"], prefabs["D_Pillar2"], prefabs["D_Column"], prefabs["D_Rubble"], prefabs["D_Barrel"], prefabs["D_Keg"], prefabs["D_Chest"] };
+            tm.decorPrefabs = new[] { prefabs["D_Pillar"], prefabs["D_Pillar2"], prefabs["D_Column"], prefabs["D_Rubble"], prefabs["D_Barrel"], prefabs["D_Keg"], prefabs["D_Chest"], prefabs["D_Statue"], prefabs["D_Brazier"], prefabs["D_Urn"], prefabs["D_ColBroken"] };
             tm.wallFeaturePrefabs = new[] { prefabs["WF_Torch"], prefabs["WF_Banner"], prefabs["WF_BannerBig"], prefabs["WF_Crest"] };
             tm.zones = new[]
             {
                 new TrackManager.Zone // castle temple — corridor + colonnade horizon baked in
                 {
                     name = "Temple", tilePrefab = prefabs["Tile"],
-                    decorPrefabs = new[] { prefabs["D_Pillar"], prefabs["D_Pillar2"], prefabs["D_Column"], prefabs["D_Rubble"], prefabs["D_Barrel"], prefabs["D_Chest"], prefabs["D_Keg"], prefabs["D2_Trunk"], prefabs["D2_Table"] },
+                    decorPrefabs = new[] { prefabs["D_Pillar"], prefabs["D_Pillar2"], prefabs["D_Column"], prefabs["D_Rubble"], prefabs["D_Barrel"], prefabs["D_Chest"], prefabs["D_Keg"], prefabs["D2_Trunk"], prefabs["D2_Table"], prefabs["D_Statue"], prefabs["D_Brazier"], prefabs["D_Urn"], prefabs["D_ColBroken"] },
                     featurePrefabs = new[] { prefabs["WF_Torch"], prefabs["WF_Banner"], prefabs["WF_BannerBig"], prefabs["WF_Crest"], prefabs["WF_BannerShield"], prefabs["WF_BannerThin"] },
                     decorXMin = 5.9f, decorXMax = 15f, decorCount = 9, featureCount = 4,
                     fogColor = Hex("#DCC9A8"),
@@ -3362,7 +4159,7 @@ namespace WarriorRun.EditorTools
                     name = "Forest",
                     tilePrefab = prefabs["Tile_Forest_A"],
                     tilePrefabs = new[] { prefabs["Tile_Forest_A"], prefabs["Tile_Forest_B"] },
-                    decorPrefabs = new[] { prefabs["Q_Bush"], prefabs["Q_BushS"], prefabs["Q_Flower"], prefabs["Q_GrassL"], prefabs["Q_Plant"], prefabs["Q_RockA"], prefabs["Q_RockB"], prefabs["Q_Log"], prefabs["Q_Stump"], prefabs["K_Mush"] },
+                    decorPrefabs = new[] { prefabs["Q_Bush"], prefabs["Q_BushS"], prefabs["Q_Flower"], prefabs["Q_GrassL"], prefabs["Q_Plant"], prefabs["Q_RockA"], prefabs["Q_RockB"], prefabs["Q_Log"], prefabs["Q_Stump"], prefabs["K_Mush"], prefabs["K_Blossom"], prefabs["K_Dead"] },
                     obstaclePrefabs = new[] { prefabs["N_LogBar"], prefabs["N_Stump"], prefabs["N_DeadFall"], prefabs["N_RockJump"], prefabs["N_LogBar"] },
                     featurePrefabs = null,
                     decorXMin = 5.6f, decorXMax = 15f, decorCount = 12, featureCount = 0,
@@ -3371,7 +4168,7 @@ namespace WarriorRun.EditorTools
                 new TrackManager.Zone // treasure vault — plus remastered dungeon clutter
                 {
                     name = "Vault", tilePrefab = prefabs["Tile_Vault"],
-                    decorPrefabs = new[] { prefabs["D_Chest"], prefabs["D_CoinPile"], prefabs["D_Keg"], prefabs["D_Barrel"], prefabs["D_Crates"], prefabs["D_Column"], prefabs["D2_Coins"], prefabs["D2_Trunk"], prefabs["D2_Shelf"], prefabs["D2_Table"] },
+                    decorPrefabs = new[] { prefabs["D_Chest"], prefabs["D_CoinPile"], prefabs["D_Keg"], prefabs["D_Barrel"], prefabs["D_Crates"], prefabs["D_Column"], prefabs["D2_Coins"], prefabs["D2_Trunk"], prefabs["D2_Shelf"], prefabs["D2_Table"], prefabs["D_Statue"], prefabs["D_Urn"], prefabs["D_Brazier"] },
                     featurePrefabs = new[] { prefabs["WF_Crest"], prefabs["WF_Torch"], prefabs["WF_BannerBig"], prefabs["WF_BannerShield"] },
                     decorXMin = 5.9f, decorXMax = 15f, decorCount = 11, featureCount = 4,
                     fogColor = Hex("#E3C188"),
@@ -3381,7 +4178,7 @@ namespace WarriorRun.EditorTools
                     name = "Canyon",
                     tilePrefab = prefabs["Tile_Canyon_A"],
                     tilePrefabs = new[] { prefabs["Tile_Canyon_A"], prefabs["Tile_Canyon_B"] },
-                    decorPrefabs = new[] { prefabs["D_Obelisk"], prefabs["D_RuinCol"], prefabs["D_Dune"], prefabs["K_Cactus"], prefabs["K_CactusS"], prefabs["K_Camp"], prefabs["Q_RockD"], prefabs["Q_RockD2"], prefabs["K_Cliff"], prefabs["K_CliffTop"], prefabs["D_Obelisk"], prefabs["D_RuinCol"] },
+                    decorPrefabs = new[] { prefabs["D_Obelisk"], prefabs["D_RuinCol"], prefabs["D_Dune"], prefabs["K_Cactus"], prefabs["K_CactusS"], prefabs["K_Camp"], prefabs["Q_RockD"], prefabs["Q_RockD2"], prefabs["K_Cliff"], prefabs["K_CliffTop"], prefabs["K_Skull"], prefabs["K_Spire"], prefabs["K_DryBrush"], prefabs["D_Obelisk"], prefabs["D_RuinCol"] },
                     obstaclePrefabs = new[] { prefabs["N_RockJump"], prefabs["N_CactusBlock"], prefabs["N_RockBlock"], prefabs["N_RockJump"], prefabs["N_CactusBlock"] },
                     featurePrefabs = null,
                     decorXMin = 5.8f, decorXMax = 17f, decorCount = 12, featureCount = 0,
@@ -3392,7 +4189,7 @@ namespace WarriorRun.EditorTools
                     name = "Volcano",
                     tilePrefab = prefabs["Tile_Lava_A"],
                     tilePrefabs = new[] { prefabs["Tile_Lava_A"], prefabs["Tile_Lava_B"] },
-                    decorPrefabs = new[] { prefabs["Q_RockD"], prefabs["D_Rubble"], prefabs["Q_Dead"], prefabs["Q_Dead2"], prefabs["K_Cliff"], prefabs["N_DeadFall"] },
+                    decorPrefabs = new[] { prefabs["V_Basalt"], prefabs["V_Obsidian"], prefabs["V_Charred"], prefabs["V_LavaBomb"], prefabs["V_Basalt"], prefabs["V_Obsidian"], prefabs["D_Rubble"], prefabs["Q_Dead"] },
                     // one lane means no lane to dodge into — only jump-overs belong here
                     obstaclePrefabs = new[] { prefabs["N_RockJump"], prefabs["N_LogBar"], prefabs["N_RockJump"], prefabs["N_LogBar"] },
                     featurePrefabs = null,
@@ -3405,7 +4202,7 @@ namespace WarriorRun.EditorTools
                     name = "City",
                     tilePrefab = prefabs["Tile_City_A"],
                     tilePrefabs = new[] { prefabs["Tile_City_A"], prefabs["Tile_City_B"] },
-                    decorPrefabs = new[] { prefabs["C_Hydrant"], prefabs["C_TrashA"], prefabs["C_TrashB"], prefabs["C_Bush"], prefabs["C_Box"], prefabs["C_Tower"] },
+                    decorPrefabs = new[] { prefabs["C_Hydrant"], prefabs["C_TrashA"], prefabs["C_TrashB"], prefabs["C_Bush"], prefabs["C_Box"], prefabs["C_Tower"], prefabs["C_Lamp"], prefabs["C_Traffic"], prefabs["C_BusStop"] },
                     obstaclePrefabs = new[] { prefabs["C_Bench"], prefabs["C_Dumpster"], prefabs["C_Crates"], prefabs["C_CarBlock"], prefabs["C_Bench"] },
                     featurePrefabs = null,
                     decorXMin = 5.0f, decorXMax = 7.2f, decorCount = 8, featureCount = 0,
@@ -3414,7 +4211,7 @@ namespace WarriorRun.EditorTools
                 new TrackManager.Zone // lagoon flume — tropical beach props snap onto the sand bed
                 {
                     name = "Lagoon", tilePrefab = prefabs["Tile_Water"],
-                    decorPrefabs = new[] { prefabs["Q_PalmA"], prefabs["Q_PalmB"], prefabs["W_Rock"], prefabs["W_Bush"], prefabs["W_Flowers"], prefabs["Q_RockA"], prefabs["D_Dune"] },
+                    decorPrefabs = new[] { prefabs["Q_PalmA"], prefabs["Q_PalmB"], prefabs["W_Rock"], prefabs["W_Bush"], prefabs["W_Flowers"], prefabs["W_Drift"], prefabs["W_Shells"], prefabs["W_Coral"], prefabs["Q_RockA"], prefabs["D_Dune"] },
                     obstaclePrefabs = new[] { prefabs["W_Wave"], prefabs["W_Buoy"], prefabs["W_Geyser"], prefabs["W_Wave"] },
                     featurePrefabs = null,
                     decorXMin = 5.6f, decorXMax = 14f, decorCount = 11, featureCount = 0,
@@ -4293,23 +5090,6 @@ namespace WarriorRun.EditorTools
             return ps;
         }
 
-        static Renderer SetupRing(Transform parent) // spinning pink ground ring while magnetised
-        {
-            var ring = MeshGO(ringMesh, "MagnetRing", mats["AuraMagnet"], parent,
-                new Vector3(0f, 0.09f, 0f), Vector3.one * 2.4f);
-            ring.SetActive(false);
-            return ring.GetComponent<MeshRenderer>();
-        }
-
-        static Renderer SetupRingTilt(Transform parent) // steep gyro hoop sweeping the waist
-        {
-            var ring = MeshGO(ringMesh, "MagnetRingTilt", mats["AuraMagnet"], parent,
-                new Vector3(0f, 0.85f, 0f), Vector3.one * 1.9f);
-            ring.transform.localEulerAngles = new Vector3(66f, 0f, 24f);
-            ring.SetActive(false);
-            return ring.GetComponent<MeshRenderer>();
-        }
-
         static ParticleSystem SetupMagnetSwirl(Transform parent) // sparks pulled INTO the runner
         {
             var go = new GameObject("MagnetSwirl");
@@ -4510,35 +5290,7 @@ namespace WarriorRun.EditorTools
 
         static void MakeBackdrop(Transform parent)
         {
-            // distant mountain ring
-            var mtn = new GameObject("Mountains");
-            mtn.transform.SetParent(parent, false);
-            var ps = mtn.AddComponent<ParallaxScroller>();
-            var so = new SerializedObject(ps);
-            so.FindProperty("speedFactor").floatValue = 0.05f;
-            so.FindProperty("loopLength").floatValue = 200f;
-            so.FindProperty("killZ").floatValue = -42f;
-            so.ApplyModifiedPropertiesWithoutUndo();
-
             var rng = new System.Random(7);
-            for (int i = 0; i < 10; i++)
-            {
-                float z = 12f + i * 19f + (float)rng.NextDouble() * 8f;
-                float side = i % 2 == 0 ? -1f : 1f;
-                float x = side * (22f + (float)rng.NextDouble() * 16f);
-                var cone = new GameObject("Mtn" + i);
-                cone.transform.SetParent(mtn.transform, false);
-                var mf = cone.AddComponent<MeshFilter>();
-                mf.sharedMesh = coneMesh;
-                var mr = cone.AddComponent<MeshRenderer>();
-                mr.sharedMaterial = i % 3 == 0 ? mats["MountainA"] : mats["MountainB"];
-                mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                float sx = 10f + (float)rng.NextDouble() * 9f;
-                float sy = 9f + (float)rng.NextDouble() * 11f;
-                cone.transform.localScale = new Vector3(sx, sy, 9f);
-                cone.transform.position = new Vector3(x, coneMesh.bounds.extents.y * sy * 0.55f, z);
-                cone.transform.rotation = Quaternion.Euler(0, (float)rng.NextDouble() * 60f, 0);
-            }
 
             // drifting cloud puffs
             var cl = new GameObject("Clouds");
@@ -4795,6 +5547,9 @@ namespace WarriorRun.EditorTools
             // streaks live on the player root so they also fire while flying
             svc.speedLines = SetupSpeedLines(root.transform);
 
+            // zipline trolley — hidden until a rope grab pops it on
+            AttachZipTrolley(root);
+
             // runner FX — heel ribbons, boost flames/afterimages, shield dome,
             // magnet ring, ghost shimmer, spring sparks, giant growth
             var fx = root.AddComponent<RunnerFx>();
@@ -4806,8 +5561,6 @@ namespace WarriorRun.EditorTools
             fx.springSwirl = SetupSwirl(visual.transform);
             fx.shieldBubble = SetupBubble(root.transform);
             fx.shieldShards = SetupShards(root.transform);
-            fx.magnetRing = SetupRing(root.transform);
-            fx.magnetRing2 = SetupRingTilt(root.transform);
             fx.magnetSwirl = SetupMagnetSwirl(root.transform);
 
             return SavePrefab(root, "Player");

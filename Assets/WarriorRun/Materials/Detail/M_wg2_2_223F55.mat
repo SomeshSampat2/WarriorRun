@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: M_wg2_2_223F55
+  m_Shader: {fileID: 4800000, guid: b41d10b28ece044b9ad801832c9e6ac3, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs: []
+    m_Ints: []
+    m_Floats:
+    - _BandAmt: 0
+    - _BandFreq: 2.4
+    - _DustAmt: 0.15
+    - _JitterAmt: 0.3
+    - _MottleAmt: 0.22
+    - _MottleScale: 1.6
+    m_Colors:
+    - _BaseColor: {r: 0.13368312, g: 0.24636611, b: 0.33453587, a: 1}
+    - _DustColor: {r: 0.85, g: 0.8, b: 0.7, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1
