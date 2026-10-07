@@ -13,5 +13,6 @@ namespace WarriorRun.Player
         void OnLaneSwitch(int dir);
         void OnLand();
         void OnDeath();
+        void OnZip(bool on);   // grab/release the zipline cable
     }
 }

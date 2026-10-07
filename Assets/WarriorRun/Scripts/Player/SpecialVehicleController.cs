@@ -31,6 +31,7 @@ namespace WarriorRun.Player
         AudioSource engine;
         AudioClip carLoop;
         AudioClip planeLoop;
+        PlayerController rider;
 
         bool car;
         bool plane;
@@ -48,6 +49,7 @@ namespace WarriorRun.Player
             engine.volume = engineVolume;
             carLoop = Resources.Load<AudioClip>("Audio/sfx_carloop");
             planeLoop = Resources.Load<AudioClip>("Audio/sfx_planeloop");
+            rider = GetComponent<PlayerController>();
             prevPos = transform.position;
         }
 
@@ -57,8 +59,12 @@ namespace WarriorRun.Player
             // stay mounted through pause — only dismount on death, menu or expiry
             bool alive = gm != null && gm.State != RunState.Dead && gm.State != RunState.Ready;
 
-            bool wantCar = alive && gm.CarActive;
-            bool wantPlane = alive && gm.PlaneActive;
+            // hanging from the zip trolley means the knight visual — a
+            // mounted car/plane can't ride the rope; the timers still run,
+            // so a long-lived vehicle remounts after the landing
+            bool zipping = rider != null && rider.IsZipping;
+            bool wantCar = alive && !zipping && gm.CarActive;
+            bool wantPlane = alive && !zipping && gm.PlaneActive;
             if (wantCar != car) SetCar(wantCar);
             if (wantPlane != plane) SetPlane(wantPlane);
 

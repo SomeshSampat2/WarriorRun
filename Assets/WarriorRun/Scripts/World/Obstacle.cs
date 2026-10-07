@@ -6,7 +6,8 @@ namespace WarriorRun.World
     {
         LowBarrier,   // jump over
         HighBarrier,  // slide under
-        WallBlock     // full block, change lane
+        WallBlock,    // full block, change lane
+        Lava          // molten channel — environmental hazard, no shield or smash-through
     }
 
     /// <summary>Marker for a deadly obstacle. The trigger volume defines the kill zone.</summary>

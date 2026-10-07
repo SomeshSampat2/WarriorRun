@@ -114,6 +114,8 @@ namespace WarriorRun.World
             public Color fogColor = new Color(0.84f, 0.90f, 0.88f);
             public GameObject[] obstaclePrefabs;  // zone-flavoured obstacles; null = default pool
             public bool singleLane;             // one centre lane only — no left/right (lava chasm)
+            public GameObject[] tileSequence;   // ordered tile layout (zip gorge); overrides tilePrefabs
+            public bool noTurns;                // never bend the path inside this zone
         }
 
         Zone CurrentZone
@@ -129,6 +131,19 @@ namespace WarriorRun.World
         {
             float r = yawDeg * Mathf.Deg2Rad;
             return new Vector3(Mathf.Sin(r), 0f, Mathf.Cos(r));
+        }
+
+        /// <summary>Force a named biome into a fixed slot of the shuffled rotation.</summary>
+        void PinZone(string zoneName, int slot)
+        {
+            if (zones == null || zoneOrder == null || zoneOrder.Length <= slot) return;
+            for (int i = 0; i < zones.Length; i++)
+                if (zones[i] != null && zones[i].name == zoneName && zoneOrder[slot] != i)
+                {
+                    int at = System.Array.IndexOf(zoneOrder, i);
+                    if (at > slot) (zoneOrder[at], zoneOrder[slot]) = (zoneOrder[slot], zoneOrder[at]);
+                    break;
+                }
         }
 
         void Start()
@@ -157,14 +172,11 @@ namespace WarriorRun.World
                 // the lava chasm is the signature biome — pin it third in the
                 // rotation so every run reaches it within ~700 m instead of
                 // possibly waiting through a full ten-zone shuffle
-                if (zoneOrder.Length > 2)
-                    for (int i = 0; i < zones.Length; i++)
-                        if (zones[i] != null && zones[i].name == "Volcano" && zoneOrder[2] != i)
-                        {
-                            int at = System.Array.IndexOf(zoneOrder, i);
-                            if (at > 2) (zoneOrder[at], zoneOrder[2]) = (zoneOrder[2], zoneOrder[at]);
-                            break;
-                        }
+                // the zip gorge is the second biome — right after the temple
+                // opener (~336 m in) so the rope ride is reached fast; the
+                // lava chasm follows as the third stop in the rotation
+                PinZone("Gorge", 1);
+                PinZone("Volcano", 2);
                 fogTarget = zones[0].fogColor;
             }
             // the distant fallback slab is tinted per-zone and follows the
@@ -209,6 +221,7 @@ namespace WarriorRun.World
                     if (z == null) continue;
                     Add(z.tilePrefab, 2);
                     AddMany(z.tilePrefabs, 2);
+                    AddMany(z.tileSequence, 2);
                     AddMany(z.decorPrefabs, 4);
                     AddMany(z.featurePrefabs, 3);
                     AddMany(z.obstaclePrefabs, 3);
@@ -354,7 +367,8 @@ namespace WarriorRun.World
         {
             var zone = CurrentZone;
             bool corner = turnLeftPrefab != null && turnRightPrefab != null
-                          && tileIndex >= firstTurnTile && sinceTurn >= nextTurnGap;
+                          && tileIndex >= firstTurnTile && sinceTurn >= nextTurnGap
+                          && !(zone != null && zone.noTurns);
             if (corner)
                 SpawnCorner(Random.value < 0.5f ? -1 : 1, zone);
             else
@@ -374,7 +388,10 @@ namespace WarriorRun.World
             var prefab = tilePrefab;
             if (zone != null)
             {
-                if (zone.tilePrefabs != null && zone.tilePrefabs.Length > 0)
+                if (zone.tileSequence != null && zone.tileSequence.Length > 0)
+                    // authored order — the zip gorge runs entry → gorge → landing
+                    prefab = zone.tileSequence[tileIndex % tilesPerZone % zone.tileSequence.Length];
+                else if (zone.tilePrefabs != null && zone.tilePrefabs.Length > 0)
                     prefab = zone.tilePrefabs[Random.Range(0, zone.tilePrefabs.Length)];
                 else if (zone.tilePrefab != null)
                     prefab = zone.tilePrefab;
@@ -404,7 +421,10 @@ namespace WarriorRun.World
             cursorPos += Heading(cursorYaw) * tileLength;
             spawnDist += tileLength;
             tileIndex++;
-            sinceTurn++;
+            // a noTurns zone (the zip gorge) must not bank junction credit —
+            // otherwise a corner lands on the very first tile past the rope
+            // and ambushes the runner the moment they touch down
+            sinceTurn = zone != null && zone.noTurns ? 0 : sinceTurn + 1;
             zoneIdx = tileIndex / tilesPerZone;
         }
 
@@ -496,6 +516,10 @@ namespace WarriorRun.World
             int decorCount = zone != null ? zone.decorCount : 3;
             int featureCount = zone != null ? zone.featureCount : 2;
             var tileRot = tileRoot.rotation;
+
+            // zip tiles carry their own world — the rope is the content
+            var zip = tileRoot.GetComponentInChildren<ZipLine>(true);
+            if (zip != null) { PopulateZip(zip, chunk); return; }
 
             // side props — houses / trees / rocks / ruins, depending on the zone
             for (int i = 0; i < decorCount; i++)
@@ -700,6 +724,48 @@ namespace WarriorRun.World
             go.transform.SetPositionAndRotation(new Vector3(pos.x, y, pos.z), Quaternion.identity);
             go.SetActive(true);
             chunk.Spawned.Add(go);
+        }
+
+        /// <summary>
+        /// Zip tiles are self-contained (cliffs, river, rope are baked into the
+        /// prefab) — the only dressing needed is the coin line strung along
+        /// the cable at grab height. A rare gem rides mid-rope.
+        /// </summary>
+        void PopulateZip(ZipLine zip, TrackChunk chunk)
+        {
+            float len = zip.Length;
+            int n = Mathf.Max(3, Mathf.FloorToInt(len / zip.coinSpacing));
+            for (int i = 0; i < n; i++)
+            {
+                var lp = zip.LocalPointAt((i + 0.5f) * len / n) + Vector3.down * zip.coinDrop;
+                SpawnCoinAt(zip.transform.TransformPoint(lp), chunk);
+            }
+        }
+
+        /// <summary>Pooled coin at an exact position — rope coins ride the cable, not the floor.</summary>
+        void SpawnCoinAt(Vector3 pos, TrackChunk chunk)
+        {
+            var go = GetFromPool(gemPrefab != null && Random.value < gemChance ? gemPrefab : coinPrefab);
+            go.transform.SetPositionAndRotation(pos, Quaternion.identity);
+            go.SetActive(true);
+            chunk.Spawned.Add(go);
+        }
+
+        /// <summary>
+        /// The rope continuing past the current one's end — rope segments chain
+        /// across tiles, so the next line's start sits where this one finishes.
+        /// </summary>
+        public ZipLine ZipLineContinuing(ZipLine cur)
+        {
+            if (cur == null) return null;
+            Vector3 end = cur.PointAt(cur.Length);
+            foreach (var t in liveTiles)
+            {
+                var z = t.GetComponentInChildren<ZipLine>(true);
+                if (z != null && z != cur && (z.PointAt(0f) - end).sqrMagnitude < 4f)
+                    return z;
+            }
+            return null;
         }
 
         /// <summary>

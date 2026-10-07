@@ -183,6 +183,18 @@ namespace WarriorRun.Core
             }
         }
 
+        /// <summary>
+        /// Rope grab — vehicles and giant can't ride a zipline, so those
+        /// power-ups end on the catch (magnet/shield/ghost stay: they're
+        /// passive and magnet is great on the coin line).
+        /// </summary>
+        public void ClearMountables()
+        {
+            if (CarActive)   { CarUntil = 0f;   PowerUpChanged?.Invoke(WarriorRun.World.PowerUpKind.Car); }
+            if (PlaneActive) { PlaneUntil = 0f; PowerUpChanged?.Invoke(WarriorRun.World.PowerUpKind.Plane); }
+            if (GiantActive) { GiantUntil = 0f; PowerUpChanged?.Invoke(WarriorRun.World.PowerUpKind.Giant); }
+        }
+
         void SetVehicleTint(Color? a, Color? b)
         {
             var p = a.HasValue ? (a.Value, b ?? a.Value) : WarriorRun.World.VehicleTint.RandomPalette();

@@ -44,7 +44,7 @@ namespace WarriorRun.Core
             musicSource.playOnAwake = false;
             musicSource.spatialBlend = 0f;
             musicSource.loop = true;
-            musicSource.volume = 0.5f;
+            musicSource.volume = 0.3f;
 
             clips = Resources.LoadAll<AudioClip>("Audio");
             // gather every beat_N clip; music_loop stays as the fallback track

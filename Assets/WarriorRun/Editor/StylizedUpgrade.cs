@@ -87,6 +87,7 @@ namespace WarriorRun.EditorTools
         {
             Run();
             ExtraContent.Apply();
+            DetailSurfaceUpgrade.Apply();
             ValidatePrefabs();
             WarriorRunBuilder.BuildAndroid();
         }
@@ -103,6 +104,7 @@ namespace WarriorRun.EditorTools
             WarriorRunBuilder.Build();
             Run();
             ExtraContent.Apply();
+            DetailSurfaceUpgrade.Apply();
             ValidatePrefabs();
             WarriorRunBuilder.BuildAndroid();
         }

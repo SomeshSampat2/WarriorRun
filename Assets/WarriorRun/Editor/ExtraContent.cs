@@ -15,10 +15,9 @@ namespace WarriorRun.EditorTools
     ///      (basalt + lava), Neon night (synthwave dark + glow) — each with a
     ///      pair of procedural tile skins, decor prefabs and obstacle prefabs
     ///   2. extra "wildcard" obstacles mixed into every zone's pool
-    ///   3. four synthesized hip-hop beat loops written to Resources/Audio as
-    ///      beat_*.wav — AudioManager picks a random one per run; they're
-    ///      generated from scratch so they're licence-free by construction
-    ///   4. rewires Game.unity's TrackManager: longer zones + rebalanced pools
+    ///   3. rewires Game.unity's TrackManager: longer zones + rebalanced pools
+    ///      (the old synthesized beat loops are retired — Resources/Audio now
+    ///      ships real CC0/CC-BY tracks; see MUSIC_CREDITS.txt)
     /// </summary>
     public static class ExtraContent
     {
@@ -35,11 +34,10 @@ namespace WarriorRun.EditorTools
             CreateObstaclePrefabs();
             CreateDecorPrefabs();
             CreateTiles();
-            WriteBeats();
             WireGameScene();
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log("[ExtraContent] done — 3 biomes, 8 obstacles, 13 decor, 4 beats");
+            Debug.Log("[ExtraContent] done — 3 biomes, 8 obstacles, 13 decor");
         }
 
         // ================= helpers =================
@@ -70,13 +68,13 @@ namespace WarriorRun.EditorTools
             }
             var c = Hex(hex);
             m.SetColor("_BaseColor", c);
-            m.SetColor("_Color", c);
-            m.SetFloat("_Smoothness", smooth);
-            m.SetFloat("_Metallic", 0f);
+            if (m.HasProperty("_Color")) m.SetColor("_Color", c);
+            if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", smooth);
+            if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", 0f);
             if (emission > 0f)
             {
                 m.EnableKeyword("_EMISSION");
-                m.SetColor("_EmissionColor", c * emission);
+                if (m.HasProperty("_EmissionColor")) m.SetColor("_EmissionColor", c * emission);
             }
             EditorUtility.SetDirty(m);
             mats[name] = m;
@@ -197,6 +195,45 @@ namespace WarriorRun.EditorTools
             col.isTrigger = true; col.center = c; col.size = s;
         }
 
+        /// <summary>Blender HD pack model (Art/Realistic/Models/hd_*) placed under parent.</summary>
+        static GameObject BModel(string id, Transform parent, Vector3 localPos, float rotY = 0f)
+        {
+            var src = AssetDatabase.LoadAssetAtPath<GameObject>(Root + "/Art/Realistic/Models/" + id + "/" + id + ".gltf");
+            if (src == null) { Debug.LogWarning("[ExtraContent] missing " + id); return null; }
+            var go = (GameObject)PrefabUtility.InstantiatePrefab(src);
+            go.name = id;
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localPos;
+            go.transform.localRotation = Quaternion.Euler(0f, rotY, 0f);
+            foreach (var c in go.GetComponentsInChildren<Collider>()) UnityEngine.Object.DestroyImmediate(c);
+            DetailSurfaceUpgrade.ReskinChildren(go);
+            return go;
+        }
+
+        /// <summary>Uniform-scale a placed model until its bounds hit the target size.</summary>
+        static void FitModel(GameObject go, float? targetX = null, float? targetY = null)
+        {
+            var rends = go.GetComponentsInChildren<Renderer>();
+            if (rends.Length == 0) return;
+            var b = rends[0].bounds;
+            foreach (var r in rends) b.Encapsulate(r.bounds);
+            float s = 0f;
+            if (targetX.HasValue) s = Mathf.Max(s, targetX.Value / Mathf.Max(0.01f, b.size.x));
+            if (targetY.HasValue) s = Mathf.Max(s, targetY.Value / Mathf.Max(0.01f, b.size.y));
+            if (s > 0f) go.transform.localScale *= s;
+        }
+
+        /// <summary>HD decor prefab — model inside a Body child so sway animates the model only.</summary>
+        static GameObject DecorR(string id, string name, float targetY, float rotY = 0f, float sway = 0f)
+        {
+            var root = new GameObject(name);
+            var body = new GameObject("Body"); body.transform.SetParent(root.transform, false);
+            var m = BModel(id, body.transform, Vector3.zero, rotY);
+            if (m != null) FitModel(m, targetY: targetY);
+            if (sway > 0f) { var a = Anim(root, body.transform); a.swayDeg = sway; a.swayFreq = 1.6f; }
+            return SavePrefab(root, name);
+        }
+
         static ObstacleAnim Anim(GameObject root, Transform target)
         {
             var a = root.AddComponent<ObstacleAnim>();
@@ -224,13 +261,8 @@ namespace WarriorRun.EditorTools
             {
                 var root = new GameObject("X_IceCrystal");
                 var body = new GameObject("Body"); body.transform.SetParent(root.transform, false);
-                var c1 = Prim(PrimitiveType.Cube, "Shard1", M("IceCrystal"), body.transform, new Vector3(0, 0.95f, 0), new Vector3(0.55f, 1.9f, 0.55f));
-                c1.transform.localRotation = Quaternion.Euler(0f, 0f, -6f);
-                var c2 = Prim(PrimitiveType.Cube, "Shard2", M("IceLane"), body.transform, new Vector3(0.55f, 0.62f, 0.15f), new Vector3(0.4f, 1.2f, 0.4f));
-                c2.transform.localRotation = Quaternion.Euler(0f, 30f, 14f);
-                var c3 = Prim(PrimitiveType.Cube, "Shard3", M("IceCrystal"), body.transform, new Vector3(-0.5f, 0.55f, -0.1f), new Vector3(0.35f, 1.1f, 0.35f));
-                c3.transform.localRotation = Quaternion.Euler(0f, -20f, -18f);
-                Prim(PrimitiveType.Cube, "Base", M("SnowBank"), body.transform, new Vector3(0, 0.08f, 0), new Vector3(1.5f, 0.16f, 1.1f));
+                var m = BModel("hd_icecrystal", body.transform, Vector3.zero, 15f);
+                if (m != null) FitModel(m, targetY: 2.1f);
                 AddTrig(root, new Vector3(0, 1.0f, 0), new Vector3(1.7f, 2.0f, 1.2f));
                 root.AddComponent<Obstacle>().kind = ObstacleKind.WallBlock;
                 SavePrefab(root, "X_IceCrystal");
@@ -238,8 +270,8 @@ namespace WarriorRun.EditorTools
             // low snow mound — jump it (frost)
             {
                 var root = new GameObject("X_SnowMound");
-                Prim(PrimitiveType.Sphere, "Mound", M("SnowCap"), root.transform, new Vector3(0, 0.05f, 0), new Vector3(2.2f, 0.85f, 1.4f));
-                Prim(PrimitiveType.Sphere, "Lump", M("SnowBank"), root.transform, new Vector3(0.9f, 0.02f, 0.15f), new Vector3(0.9f, 0.55f, 0.8f));
+                var m = BModel("hd_snowdrift", root.transform, new Vector3(0, -0.05f, 0));
+                if (m != null) FitModel(m, targetX: 2.3f);
                 AddTrig(root, new Vector3(0, 0.42f, 0), new Vector3(2.1f, 0.85f, 1.1f));
                 root.AddComponent<Obstacle>().kind = ObstacleKind.LowBarrier;
                 SavePrefab(root, "X_SnowMound");
@@ -261,11 +293,8 @@ namespace WarriorRun.EditorTools
             {
                 var root = new GameObject("X_ObsidianSpike");
                 var body = new GameObject("Body"); body.transform.SetParent(root.transform, false);
-                MeshGO(cone4, "Spike1", M("Obsidian"), body.transform, new Vector3(0, 0f, 0), new Vector3(1.1f, 2.3f, 1.1f), 20f);
-                MeshGO(cone4, "Spike2", M("Basalt"), body.transform, new Vector3(0.62f, 0f, 0.25f), new Vector3(0.7f, 1.4f, 0.7f), 55f);
-                MeshGO(cone4, "Spike3", M("Obsidian"), body.transform, new Vector3(-0.55f, 0f, -0.2f), new Vector3(0.6f, 1.1f, 0.6f), 80f);
-                Prim(PrimitiveType.Cube, "Glow1", M("LavaLine"), body.transform, new Vector3(0.28f, 0.5f, 0.3f), new Vector3(0.09f, 0.5f, 0.09f));
-                Prim(PrimitiveType.Cube, "Glow2", M("LavaCore"), body.transform, new Vector3(-0.3f, 0.32f, -0.05f), new Vector3(0.08f, 0.35f, 0.08f));
+                var m = BModel("hd_obsidian", body.transform, Vector3.zero, 25f);
+                if (m != null) FitModel(m, targetY: 2.3f);
                 AddTrig(root, new Vector3(0, 1.05f, 0), new Vector3(1.6f, 2.1f, 1.1f));
                 root.AddComponent<Obstacle>().kind = ObstacleKind.WallBlock;
                 SavePrefab(root, "X_ObsidianSpike");
@@ -287,10 +316,8 @@ namespace WarriorRun.EditorTools
             {
                 var root = new GameObject("X_NeonPillar");
                 var body = new GameObject("Body"); body.transform.SetParent(root.transform, false);
-                Prim(PrimitiveType.Cube, "Core", M("NeonDark"), body.transform, new Vector3(0, 1.15f, 0), new Vector3(0.9f, 2.3f, 0.9f));
-                Prim(PrimitiveType.Cylinder, "Ring1", M("NeonCyan"), body.transform, new Vector3(0, 0.55f, 0), new Vector3(1.15f, 0.06f, 1.15f));
-                Prim(PrimitiveType.Cylinder, "Ring2", M("NeonPink"), body.transform, new Vector3(0, 1.15f, 0), new Vector3(1.15f, 0.06f, 1.15f));
-                Prim(PrimitiveType.Cylinder, "Ring3", M("NeonViolet"), body.transform, new Vector3(0, 1.75f, 0), new Vector3(1.15f, 0.06f, 1.15f));
+                var m = BModel("hd_neon_pylon", body.transform, Vector3.zero, 10f);
+                if (m != null) FitModel(m, targetY: 2.4f);
                 AddTrig(root, new Vector3(0, 1.15f, 0), new Vector3(1.3f, 2.3f, 1.3f));
                 root.AddComponent<Obstacle>().kind = ObstacleKind.WallBlock;
                 SavePrefab(root, "X_NeonPillar");
@@ -353,70 +380,31 @@ namespace WarriorRun.EditorTools
 
         static void CreateDecorPrefabs()
         {
-            // --- frost ---
-            Decor("F_PineSnow", t => PineSnow(t, 1.4f), sway: 1.6f);
-            Decor("F_PineSnowTall", t => PineSnow(t, 2.0f), sway: 1.4f);
-            Decor("F_IceShard", t => IceShardCluster(t, 1.2f));
-            Decor("F_SnowRock", t =>
-            {
-                Prim(PrimitiveType.Sphere, "Rock", M("StoneDark"), t, new Vector3(0, 0.35f, 0), new Vector3(1.6f, 1.0f, 1.3f));
-                Prim(PrimitiveType.Sphere, "Cap", M("SnowCap"), t, new Vector3(0, 0.78f, 0), new Vector3(1.35f, 0.35f, 1.05f));
-            });
-            Decor("F_Snowman", t =>
-            {
-                Prim(PrimitiveType.Sphere, "Bottom", M("SnowCap"), t, new Vector3(0, 0.55f, 0), new Vector3(1.1f, 1.1f, 1.1f));
-                Prim(PrimitiveType.Sphere, "Mid", M("SnowCap"), t, new Vector3(0, 1.35f, 0), new Vector3(0.8f, 0.8f, 0.8f));
-                Prim(PrimitiveType.Sphere, "Head", M("SnowCap"), t, new Vector3(0, 1.95f, 0), new Vector3(0.55f, 0.55f, 0.55f));
-                var n = Prim(PrimitiveType.Cube, "Nose", M("LavaCore"), t, new Vector3(0, 1.95f, -0.35f), new Vector3(0.09f, 0.09f, 0.4f));
-                n.transform.localRotation = Quaternion.Euler(-8f, 0f, 0f);
-                Prim(PrimitiveType.Sphere, "EyeL", M("Charred"), t, new Vector3(-0.12f, 2.05f, -0.26f), new Vector3(0.08f, 0.08f, 0.08f));
-                Prim(PrimitiveType.Sphere, "EyeR", M("Charred"), t, new Vector3(0.12f, 2.05f, -0.26f), new Vector3(0.08f, 0.08f, 0.08f));
-            });
-            // --- ember ---
-            Decor("E_Obsidian", t => ObsidianCluster(t, 1.5f));
+            // --- frost — Blender HD: tiered snow pines, crystals, drifts ---
+            DecorR("hd_pine_snow", "F_PineSnow", 4.4f, sway: 1.6f);
+            DecorR("hd_pine_snow_b", "F_PineSnowTall", 6.2f, sway: 1.4f);
+            DecorR("hd_icecrystal", "F_IceShard", 2.0f);
+            DecorR("hd_frozenrock", "F_SnowRock", 1.4f);
+            DecorR("hd_snowman", "F_Snowman", 2.2f);
+            DecorR("hd_snowdrift", "F_SnowDrift", 1.0f);
+            // --- ember — obsidian shards, charred trees, lava vents ---
+            DecorR("hd_obsidian", "E_Obsidian", 2.4f);
             Decor("E_LavaVent", t =>
             {
                 Prim(PrimitiveType.Cylinder, "Ring", M("EmberRock"), t, new Vector3(0, 0.18f, 0), new Vector3(1.6f, 0.18f, 1.6f));
                 var core = Prim(PrimitiveType.Cylinder, "Core", M("LavaCore"), t, new Vector3(0, 0.3f, 0), new Vector3(1.15f, 0.1f, 1.15f));
-                Prim(PrimitiveType.Cube, "Rock1", M("Obsidian"), t, new Vector3(0.8f, 0.5f, 0), new Vector3(0.35f, 0.8f, 0.35f));
+                var rock = BModel("hd_lavabomb", t, new Vector3(0.9f, 0f, 0.2f), 40f);
+                if (rock != null) FitModel(rock, targetY: 0.8f);
                 var a = Anim(t.root.gameObject, core.transform); a.squashAmp = 0.18f; a.squashFreq = 1.4f;
             });
-            Decor("E_CharredTrunk", t =>
-            {
-                var tr = Prim(PrimitiveType.Cylinder, "Trunk", M("Charred"), t, new Vector3(0, 1.1f, 0), new Vector3(0.35f, 1.1f, 0.35f));
-                tr.transform.localRotation = Quaternion.Euler(0f, 0f, 6f);
-                Prim(PrimitiveType.Cube, "EmberTip", M("LavaLine"), t, new Vector3(0.14f, 2.15f, 0), new Vector3(0.2f, 0.12f, 0.2f));
-                MeshGO(cone4, "Stub", M("Charred"), t, new Vector3(0.5f, 0, 0.2f), new Vector3(0.3f, 0.7f, 0.3f), 40f);
-            });
-            Decor("E_EmberCrag", t =>
-            {
-                var r = Prim(PrimitiveType.Cube, "Rock", M("EmberRock"), t, new Vector3(0, 0.7f, 0), new Vector3(1.6f, 1.4f, 1.2f));
-                r.transform.localRotation = Quaternion.Euler(0f, 30f, 0f);
-                Prim(PrimitiveType.Cube, "Crack1", M("LavaLine"), t, new Vector3(0.3f, 0.8f, 0.62f), new Vector3(0.08f, 0.9f, 0.05f));
-                Prim(PrimitiveType.Cube, "Crack2", M("LavaCore"), t, new Vector3(-0.35f, 0.6f, 0.62f), new Vector3(0.06f, 0.6f, 0.05f));
-            });
-            // --- neon ---
-            Decor("N_Pylon", t =>
-            {
-                Prim(PrimitiveType.Cube, "Post", M("NeonDark"), t, new Vector3(0, 1.4f, 0), new Vector3(0.5f, 2.8f, 0.5f));
-                Prim(PrimitiveType.Cylinder, "RingA", M("NeonCyan"), t, new Vector3(0, 0.8f, 0), new Vector3(0.75f, 0.07f, 0.75f));
-                Prim(PrimitiveType.Cylinder, "RingB", M("NeonPink"), t, new Vector3(0, 1.9f, 0), new Vector3(0.75f, 0.07f, 0.75f));
-                Prim(PrimitiveType.Cube, "Tip", M("HoloBlue"), t, new Vector3(0, 2.9f, 0), new Vector3(0.56f, 0.14f, 0.56f));
-            });
-            Decor("N_HoloCube", t =>
-            {
-                Prim(PrimitiveType.Cube, "Base", M("NeonDark"), t, new Vector3(0, 0.25f, 0), new Vector3(0.7f, 0.5f, 0.7f));
-                var cube = Prim(PrimitiveType.Cube, "Holo", M("HoloBlue"), t, new Vector3(0, 1.7f, 0), new Vector3(0.9f, 0.9f, 0.9f));
-                cube.transform.localRotation = Quaternion.Euler(0f, 35f, 0f);
-                var a = Anim(t.root.gameObject, cube.transform);
-                a.bobAmp = 0.22f; a.bobFreq = 1.6f; a.spinDegPerSec = 35f; a.spinAxis = Vector3.up;
-            });
-            Decor("N_GlowTotem", t =>
-            {
-                Prim(PrimitiveType.Cube, "Base", M("NeonWall"), t, new Vector3(0, 0.3f, 0), new Vector3(1.1f, 0.6f, 1.1f));
-                Prim(PrimitiveType.Cube, "Mid", M("NeonViolet"), t, new Vector3(0, 1.0f, 0), new Vector3(0.85f, 0.8f, 0.85f));
-                Prim(PrimitiveType.Cube, "Top", M("NeonCyan"), t, new Vector3(0, 1.75f, 0), new Vector3(0.6f, 0.7f, 0.6f));
-            });
+            DecorR("hd_charred", "E_CharredTrunk", 3.4f, sway: 1.2f);
+            DecorR("hd_lavabomb", "E_EmberCrag", 1.5f);
+            DecorR("hd_basalt_hex", "E_Basalt", 2.6f);
+            // --- neon — glow pylons, holo signs, floating cubes ---
+            DecorR("hd_neon_pylon", "N_Pylon", 3.4f);
+            DecorR("hd_holo", "N_HoloCube", 2.6f);
+            DecorR("hd_neon_shard", "N_GlowTotem", 2.6f);
+            DecorR("hd_neon_sign", "N_Sign", 2.8f);
         }
 
         // ================= new tile skins =================
@@ -436,9 +424,10 @@ namespace WarriorRun.EditorTools
         static GameObject MakeFrostTile(int seed, string name)
         {
             var root = new GameObject("TrackTile");
-            Prim(PrimitiveType.Cube, "Floor", M("SnowFloor"), root.transform, new Vector3(0, -0.3f, 12), new Vector3(9.4f, 0.6f, 24f), keepCollider: true);
-            foreach (var x in new[] { -2.2f, 0f, 2.2f })
-                Prim(PrimitiveType.Cube, "IceLane", M("IceLane"), root.transform, new Vector3(x, -0.005f, 12), new Vector3(1.5f, 0.02f, 24f));
+            // Blender slab carries the icy lane ribbons + drift lips; cube stays as collider
+            var fl = Prim(PrimitiveType.Cube, "Floor", M("SnowFloor"), root.transform, new Vector3(0, -0.3f, 12), new Vector3(9.4f, 0.6f, 24f), keepCollider: true);
+            fl.GetComponent<MeshRenderer>().enabled = false;
+            BModel("hd_rd_ice", root.transform, Vector3.zero);
             foreach (var s in new[] { -1f, 1f })
                 Prim(PrimitiveType.Cube, "Bank", M("SnowBank"), root.transform, new Vector3(s * 4.75f, -0.05f, 12), new Vector3(1.0f, 0.5f, 24f));
             Prim(PrimitiveType.Cube, "UnderBed", M("SnowBed"), root.transform, new Vector3(0, -0.75f, 12), new Vector3(64f, 0.5f, 24f), keepCollider: true);
@@ -452,34 +441,46 @@ namespace WarriorRun.EditorTools
                     double r = rng.NextDouble();
                     if (r < 0.42f)
                     {
-                        var g = new GameObject("Pine"); g.transform.SetParent(root.transform, false);
-                        g.transform.localPosition = new Vector3(x, -0.5f, z);
-                        PineSnow(g.transform, 1.1f + (float)rng.NextDouble() * 0.9f);
+                        var m = BModel(rng.NextDouble() < 0.55f ? "hd_pine_snow" : "hd_pine_snow_b",
+                            root.transform, new Vector3(x, -0.5f, z), rng.Next(360));
+                        if (m != null) FitModel(m, targetY: 3.4f + (float)rng.NextDouble() * 2.6f);
                     }
-                    else if (r < 0.7f)
+                    else if (r < 0.6f)
                     {
-                        var g = new GameObject("Shard"); g.transform.SetParent(root.transform, false);
-                        g.transform.localPosition = new Vector3(x, -0.5f, z);
-                        g.transform.localRotation = Quaternion.Euler(0f, rng.Next(360), 0f);
-                        IceShardCluster(g.transform, 0.9f + (float)rng.NextDouble() * 0.5f);
+                        var m = BModel("hd_icecrystal", root.transform, new Vector3(x, -0.5f, z), rng.Next(360));
+                        if (m != null) FitModel(m, targetY: 1.4f + (float)rng.NextDouble() * 1.1f);
                     }
-                    else if (r < 0.9f)
-                        Prim(PrimitiveType.Sphere, "Mound", M("SnowBank"), root.transform,
-                            new Vector3(x, -0.62f, z), new Vector3(2.2f, 0.9f, 2.0f));
+                    else if (r < 0.72f)
+                    {
+                        var m = BModel("hd_frozenrock", root.transform, new Vector3(x, -0.5f, z), rng.Next(360));
+                        if (m != null) FitModel(m, targetX: 1.8f + (float)rng.NextDouble() * 1.0f);
+                    }
+                    else if (r < 0.8f)
+                    {
+                        var m = BModel("hd_snowman", root.transform, new Vector3(x, -0.5f, z), rng.Next(360));
+                        if (m != null) FitModel(m, targetY: 1.9f + (float)rng.NextDouble() * 0.6f);
+                    }
+                    else if (r < 0.92f)
+                    {
+                        var m = BModel("hd_snowdrift", root.transform, new Vector3(x, -0.55f, z), rng.Next(360));
+                        if (m != null) FitModel(m, targetX: 2.4f + (float)rng.NextDouble() * 1.4f);
+                    }
                 }
             // horizon — big drifts + distant pines
             for (int zi = 0; zi < 4; zi++)
                 foreach (var s in new[] { -1f, 1f })
                 {
                     if (rng.NextDouble() < 0.75f)
-                        Prim(PrimitiveType.Sphere, "Drift", M("SnowBank"), root.transform,
-                            new Vector3(s * (11.5f + (float)rng.NextDouble() * 5f), -0.7f, zi * 6f + 2f),
-                            new Vector3(4f + (float)rng.NextDouble() * 2.5f, 1.6f, 3.2f));
+                    {
+                        var m = BModel("hd_snowdrift", root.transform,
+                            new Vector3(s * (11.5f + (float)rng.NextDouble() * 5f), -0.55f, zi * 6f + 2f), rng.Next(360));
+                        if (m != null) FitModel(m, targetX: 4.5f + (float)rng.NextDouble() * 3f);
+                    }
                     if (rng.NextDouble() < 0.6f)
                     {
-                        var g = new GameObject("PineFar"); g.transform.SetParent(root.transform, false);
-                        g.transform.localPosition = new Vector3(s * (13f + (float)rng.NextDouble() * 5f), -0.5f, zi * 6f + (float)rng.NextDouble() * 3f);
-                        PineSnow(g.transform, 2.6f + (float)rng.NextDouble() * 1.2f);
+                        var m = BModel(rng.NextDouble() < 0.5f ? "hd_pine_snow" : "hd_pine_snow_b", root.transform,
+                            new Vector3(s * (13f + (float)rng.NextDouble() * 5f), -0.5f, zi * 6f + (float)rng.NextDouble() * 3f), rng.Next(360));
+                        if (m != null) FitModel(m, targetY: 7f + (float)rng.NextDouble() * 3.5f);
                     }
                 }
             return SavePrefab(root, name);
@@ -490,12 +491,10 @@ namespace WarriorRun.EditorTools
         static GameObject MakeEmberTile(int seed, string name)
         {
             var root = new GameObject("TrackTile");
-            Prim(PrimitiveType.Cube, "Floor", M("Basalt"), root.transform, new Vector3(0, -0.3f, 12), new Vector3(9.4f, 0.6f, 24f), keepCollider: true);
-            // lava veins between lanes + along the edges — the glow is the read
-            foreach (var x in new[] { -1.1f, 1.1f })
-                Prim(PrimitiveType.Cube, "Vein", M("LavaLine"), root.transform, new Vector3(x, -0.002f, 12), new Vector3(0.12f, 0.015f, 24f));
-            foreach (var x in new[] { -3.4f, 3.4f })
-                Prim(PrimitiveType.Cube, "VeinEdge", M("LavaCore"), root.transform, new Vector3(x, -0.002f, 12), new Vector3(0.16f, 0.015f, 24f));
+            // Blender slab carries the crack network + ember veins; cube stays as collider
+            var fl = Prim(PrimitiveType.Cube, "Floor", M("Basalt"), root.transform, new Vector3(0, -0.3f, 12), new Vector3(9.4f, 0.6f, 24f), keepCollider: true);
+            fl.GetComponent<MeshRenderer>().enabled = false;
+            BModel("hd_rd_basalt", root.transform, Vector3.zero);
             foreach (var s in new[] { -1f, 1f })
                 Prim(PrimitiveType.Cube, "WallEdge", M("BasaltWall"), root.transform, new Vector3(s * 4.7f, -0.02f, 12), new Vector3(0.9f, 0.55f, 24f));
             Prim(PrimitiveType.Cube, "UnderBed", M("AshBed"), root.transform, new Vector3(0, -0.75f, 12), new Vector3(64f, 0.5f, 24f), keepCollider: true);
@@ -507,38 +506,45 @@ namespace WarriorRun.EditorTools
                     float z = zi * 3.1f + (float)rng.NextDouble() * 1.6f;
                     float x = s * (5.6f + (float)rng.NextDouble() * 3.4f);
                     double r = rng.NextDouble();
-                    if (r < 0.4f)
+                    if (r < 0.38f)
                     {
-                        var g = new GameObject("Obsidian"); g.transform.SetParent(root.transform, false);
-                        g.transform.localPosition = new Vector3(x, -0.5f, z);
-                        g.transform.localRotation = Quaternion.Euler(0f, rng.Next(360), 0f);
-                        ObsidianCluster(g.transform, 1.0f + (float)rng.NextDouble() * 0.9f);
+                        var m = BModel("hd_obsidian", root.transform, new Vector3(x, -0.5f, z), rng.Next(360));
+                        if (m != null) FitModel(m, targetY: 1.8f + (float)rng.NextDouble() * 1.8f);
                     }
-                    else if (r < 0.65f)
+                    else if (r < 0.58f)
                     {
                         var g = new GameObject("Vent"); g.transform.SetParent(root.transform, false);
                         g.transform.localPosition = new Vector3(x, -0.5f, z);
                         Prim(PrimitiveType.Cylinder, "Rim", M("EmberRock"), g.transform, Vector3.zero, new Vector3(1.6f, 0.16f, 1.6f));
                         Prim(PrimitiveType.Cylinder, "Core", M("LavaCore"), g.transform, new Vector3(0, 0.2f, 0), new Vector3(1.1f, 0.08f, 1.1f));
                     }
-                    else if (r < 0.85f)
+                    else if (r < 0.78f)
                     {
-                        var tr = Prim(PrimitiveType.Cylinder, "Charred", M("Charred"), root.transform, new Vector3(x, 0.7f, z), new Vector3(0.3f, 1.2f, 0.3f));
-                        tr.transform.localRotation = Quaternion.Euler(0f, rng.Next(360), rng.Next(-10, 10));
+                        var m = BModel("hd_charred", root.transform, new Vector3(x, -0.5f, z), rng.Next(360));
+                        if (m != null) FitModel(m, targetY: 2.6f + (float)rng.NextDouble() * 1.6f);
+                    }
+                    else if (r < 0.92f)
+                    {
+                        var m = BModel("hd_lavabomb", root.transform, new Vector3(x, -0.5f, z), rng.Next(360));
+                        if (m != null) FitModel(m, targetX: 1.5f + (float)rng.NextDouble() * 0.9f);
                     }
                 }
-            // horizon — black crags with ember seams
+            // horizon — basalt columns + ember-seamed boulders
             for (int zi = 0; zi < 4; zi++)
                 foreach (var s in new[] { -1f, 1f })
                 {
                     if (rng.NextDouble() < 0.7f)
-                        MeshGO(cone4, "Crag", M("BasaltWall"), root.transform,
-                            new Vector3(s * (12f + (float)rng.NextDouble() * 5f), -0.6f, zi * 6f + (float)rng.NextDouble() * 3f),
-                            new Vector3(3.2f + (float)rng.NextDouble() * 2f, 5f + (float)rng.NextDouble() * 3f, 3.2f), rng.Next(90));
+                    {
+                        var m = BModel("hd_basalt_hex", root.transform,
+                            new Vector3(s * (12f + (float)rng.NextDouble() * 5f), -0.6f, zi * 6f + (float)rng.NextDouble() * 3f), rng.Next(90));
+                        if (m != null) FitModel(m, targetY: 5.5f + (float)rng.NextDouble() * 4f);
+                    }
                     if (rng.NextDouble() < 0.5f)
-                        Prim(PrimitiveType.Cube, "GlowRock", M("EmberRock"), root.transform,
-                            new Vector3(s * (10.5f + (float)rng.NextDouble() * 4f), -0.1f, zi * 6f + 3f),
-                            new Vector3(1.8f, 1.4f, 1.4f));
+                    {
+                        var m = BModel("hd_lavabomb", root.transform,
+                            new Vector3(s * (10.5f + (float)rng.NextDouble() * 4f), -0.3f, zi * 6f + 3f), rng.Next(360));
+                        if (m != null) FitModel(m, targetX: 2.2f + (float)rng.NextDouble() * 1.2f);
+                    }
                 }
             return SavePrefab(root, name);
         }
@@ -548,11 +554,10 @@ namespace WarriorRun.EditorTools
         static GameObject MakeNeonTile(int seed, string name)
         {
             var root = new GameObject("TrackTile");
-            Prim(PrimitiveType.Cube, "Floor", M("NeonFloor"), root.transform, new Vector3(0, -0.3f, 12), new Vector3(9.4f, 0.6f, 24f), keepCollider: true);
-            foreach (var x in new[] { -1.1f, 1.1f })
-                Prim(PrimitiveType.Cube, "Guide", M("NeonCyan"), root.transform, new Vector3(x, -0.002f, 12), new Vector3(0.1f, 0.015f, 24f));
-            foreach (var x in new[] { -4.25f, 4.25f })
-                Prim(PrimitiveType.Cube, "EdgeGlow", M("NeonPink"), root.transform, new Vector3(x, -0.002f, 12), new Vector3(0.14f, 0.015f, 24f));
+            // Blender slab carries the neon lane guides + edge glow; cube stays as collider
+            var fl = Prim(PrimitiveType.Cube, "Floor", M("NeonFloor"), root.transform, new Vector3(0, -0.3f, 12), new Vector3(9.4f, 0.6f, 24f), keepCollider: true);
+            fl.GetComponent<MeshRenderer>().enabled = false;
+            BModel("hd_rd_neon", root.transform, Vector3.zero);
             foreach (var s in new[] { -1f, 1f })
                 Prim(PrimitiveType.Cube, "WallEdge", M("NeonWall"), root.transform, new Vector3(s * 4.75f, 0.15f, 12), new Vector3(0.8f, 0.9f, 24f));
             Prim(PrimitiveType.Cube, "UnderBed", M("NeonDark"), root.transform, new Vector3(0, -0.75f, 12), new Vector3(64f, 0.5f, 24f), keepCollider: true);
@@ -564,31 +569,30 @@ namespace WarriorRun.EditorTools
                     float z = zi * 3.1f + (float)rng.NextDouble() * 1.6f;
                     float x = s * (5.6f + (float)rng.NextDouble() * 3.4f);
                     double r = rng.NextDouble();
-                    if (r < 0.45f)
+                    if (r < 0.4f)
                     {
-                        var g = new GameObject("Pylon"); g.transform.SetParent(root.transform, false);
-                        g.transform.localPosition = new Vector3(x, -0.5f, z);
-                        Prim(PrimitiveType.Cube, "Post", M("NeonDark"), g.transform, new Vector3(0, 1.4f, 0), new Vector3(0.45f, 2.8f, 0.45f));
-                        Prim(PrimitiveType.Cylinder, "RingA", M("NeonCyan"), g.transform, new Vector3(0, 0.9f, 0), new Vector3(0.7f, 0.07f, 0.7f));
-                        Prim(PrimitiveType.Cylinder, "RingB", M("NeonPink"), g.transform, new Vector3(0, 2.0f, 0), new Vector3(0.7f, 0.07f, 0.7f));
+                        var m = BModel("hd_neon_pylon", root.transform, new Vector3(x, -0.5f, z), rng.Next(360));
+                        if (m != null) FitModel(m, targetY: 3.0f + (float)rng.NextDouble() * 1.4f);
                     }
-                    else if (r < 0.7f)
+                    else if (r < 0.58f)
                     {
-                        var g = new GameObject("Totem"); g.transform.SetParent(root.transform, false);
-                        g.transform.localPosition = new Vector3(x, -0.5f, z);
-                        Prim(PrimitiveType.Cube, "B", M("NeonWall"), g.transform, new Vector3(0, 0.3f, 0), new Vector3(1.0f, 0.6f, 1.0f));
-                        Prim(PrimitiveType.Cube, "M", M("NeonViolet"), g.transform, new Vector3(0, 1.0f, 0), new Vector3(0.75f, 0.8f, 0.75f));
-                        Prim(PrimitiveType.Cube, "T", M("NeonCyan"), g.transform, new Vector3(0, 1.7f, 0), new Vector3(0.5f, 0.6f, 0.5f));
+                        var m = BModel("hd_neon_shard", root.transform, new Vector3(x, -0.5f, z), rng.Next(360));
+                        if (m != null) FitModel(m, targetY: 2.0f + (float)rng.NextDouble() * 1.2f);
                     }
-                    else if (r < 0.9f)
+                    else if (r < 0.72f)
                     {
-                        // floating holo cube — cheap and reads great against dark
-                        Prim(PrimitiveType.Cube, "Holo", M("HoloBlue"), root.transform,
-                            new Vector3(x, 1.4f + (float)rng.NextDouble() * 1.2f, z),
-                            new Vector3(0.8f, 0.8f, 0.8f));
+                        var m = BModel("hd_neon_sign", root.transform, new Vector3(x, -0.5f, z), s > 0 ? 180f + rng.Next(-20, 20) : rng.Next(-20, 20));
+                        if (m != null) FitModel(m, targetY: 2.6f + (float)rng.NextDouble() * 1.0f);
+                    }
+                    else if (r < 0.92f)
+                    {
+                        // floating holo panel — reads great against dark
+                        var m = BModel("hd_holo", root.transform,
+                            new Vector3(x, 0.9f + (float)rng.NextDouble() * 1.4f, z), rng.Next(360));
+                        if (m != null) FitModel(m, targetY: 1.6f + (float)rng.NextDouble() * 0.8f);
                     }
                 }
-            // horizon — distant neon orbs + dark slabs = skyline glow
+            // horizon — distant neon orbs + glowing billboard slabs
             for (int zi = 0; zi < 4; zi++)
                 foreach (var s in new[] { -1f, 1f })
                 {
@@ -597,9 +601,11 @@ namespace WarriorRun.EditorTools
                             new Vector3(s * (12f + (float)rng.NextDouble() * 6f), 2.2f + (float)rng.NextDouble() * 2.5f, zi * 6f + 2f),
                             new Vector3(1.1f, 1.1f, 1.1f));
                     if (rng.NextDouble() < 0.7f)
-                        Prim(PrimitiveType.Cube, "Slab", M("NeonWall"), root.transform,
-                            new Vector3(s * (12.5f + (float)rng.NextDouble() * 5f), 1.5f, zi * 6f + (float)rng.NextDouble() * 3f),
-                            new Vector3(2.6f, 4f + (float)rng.NextDouble() * 3f, 2.2f));
+                    {
+                        var m = BModel(rng.NextDouble() < 0.6f ? "hd_neon_sign" : "hd_neon_pylon", root.transform,
+                            new Vector3(s * (12.5f + (float)rng.NextDouble() * 5f), -0.4f, zi * 6f + (float)rng.NextDouble() * 3f), rng.Next(360));
+                        if (m != null) FitModel(m, targetY: 4.5f + (float)rng.NextDouble() * 3.5f);
+                    }
                 }
             return SavePrefab(root, name);
         }
@@ -836,13 +842,19 @@ namespace WarriorRun.EditorTools
 
         static void SetZone(SerializedProperty z, string name, string tile, string[] tiles,
             string[] decor, string[] feats, string[] obst,
-            float xMin, float xMax, int dCount, int fCount, string fog)
+            float xMin, float xMax, int dCount, int fCount, string fog,
+            string[] seq = null, bool noTurns = false)
         {
             z.FindPropertyRelative("name").stringValue = name;
             z.FindPropertyRelative("tilePrefab").objectReferenceValue = tile != null ? P(tile) : null;
             var tp = z.FindPropertyRelative("tilePrefabs");
             if (tiles != null) SetPrefabArray(tp, tiles);
             else tp.arraySize = 0;
+            var sq = z.FindPropertyRelative("tileSequence");
+            if (seq != null) SetPrefabArray(sq, seq);
+            else sq.arraySize = 0;
+            var nt = z.FindPropertyRelative("noTurns");
+            if (nt != null) nt.boolValue = noTurns;
             SetPrefabArray(z.FindPropertyRelative("decorPrefabs"), decor);
             if (feats != null) SetPrefabArray(z.FindPropertyRelative("featurePrefabs"), feats);
             else z.FindPropertyRelative("featurePrefabs").arraySize = 0;
@@ -889,23 +901,30 @@ namespace WarriorRun.EditorTools
             SetPrefabArray(zones.GetArrayElementAtIndex(6).FindPropertyRelative("obstaclePrefabs"),
                 "W_Wave", "W_Buoy", "SpikeTrap", "W_Geyser");
 
-            // append the three new biomes
-            zones.arraySize = 10;
+            // append the new biomes — Frost/Ember/Neon runners, then the
+            // zip gorge: an ordered entry→canyon→landing rope descent
+            zones.arraySize = 11;
             SetZone(zones.GetArrayElementAtIndex(7), "Frost",
                 "Tile_Frost_A", new[] { "Tile_Frost_A", "Tile_Frost_B" },
-                new[] { "F_PineSnow", "F_IceShard", "F_SnowRock", "F_Snowman", "F_PineSnowTall" },
+                new[] { "F_PineSnow", "F_IceShard", "F_SnowRock", "F_Snowman", "F_PineSnowTall", "F_SnowDrift" },
                 null, new[] { "X_Snowball", "X_IceCrystal", "X_SnowMound", "X_IceCrystal" },
                 5.8f, 15f, 11, 0, "#DCEBF2");
             SetZone(zones.GetArrayElementAtIndex(8), "Ember",
                 "Tile_Ember_A", new[] { "Tile_Ember_A", "Tile_Ember_B" },
-                new[] { "E_Obsidian", "E_LavaVent", "E_CharredTrunk", "E_EmberCrag", "E_Obsidian" },
+                new[] { "E_Obsidian", "E_LavaVent", "E_CharredTrunk", "E_EmberCrag", "E_Basalt", "E_Obsidian" },
                 null, new[] { "X_ObsidianSpike", "X_LavaPool", "SpikeTrap", "X_ObsidianSpike" },
                 5.8f, 15f, 11, 0, "#3C2B2A");
             SetZone(zones.GetArrayElementAtIndex(9), "Neon",
                 "Tile_Neon_A", new[] { "Tile_Neon_A", "Tile_Neon_B" },
-                new[] { "N_Pylon", "N_HoloCube", "N_GlowTotem", "N_Pylon", "N_HoloCube" },
+                new[] { "N_Pylon", "N_HoloCube", "N_GlowTotem", "N_Sign", "N_Pylon", "N_HoloCube" },
                 null, new[] { "X_NeonBeam", "X_NeonPillar", "X_NeonBeam", "X_RollBarrel" },
                 5.8f, 15f, 10, 0, "#1B1E3A");
+            SetZone(zones.GetArrayElementAtIndex(10), "Gorge",
+                null, null, new string[0], null, null,
+                5.8f, 15f, 0, 0, "#A9C6B8",
+                seq: new[] { "Tile_Zip_Entry", "Tile_Zip_Mid", "Tile_Zip_Mid",
+                             "Tile_Zip_Mid", "Tile_Zip_Mid", "Tile_Zip_Mid", "Tile_Zip_Exit" },
+                noTurns: true);
 
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(tm);

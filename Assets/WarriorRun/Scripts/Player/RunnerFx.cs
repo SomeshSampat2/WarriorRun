@@ -21,8 +21,6 @@ namespace WarriorRun.Player
         public ParticleSystem springSwirl;  // orbit sparks while spring boots live
         public ParticleSystem shieldShards; // one-shot burst on shield break
         public Renderer shieldBubble;       // translucent dome while a shield is held
-        public Renderer magnetRing;         // flat ground ring while magnetised
-        public Renderer magnetRing2;        // tilted gyro hoop — precesses counter to the flat ring
         public ParticleSystem magnetSwirl;  // sparks spiralling into the runner
         public Material ghostMat;           // phase swap — translucent, flickers
         public Material afterMat;           // afterimage silhouettes — additive
@@ -46,32 +44,17 @@ namespace WarriorRun.Player
         bool hadShield;
         bool ghostApplied;
         float giantCur = 1f;
-        Vector3 bubbleScale, ringScale, ring2Scale;
-        Color ringBase;
-        static readonly Color ring2Tint = new Color(1f, 0.55f, 0.68f);
+        Vector3 bubbleScale;
         readonly List<(Renderer r, Material[] mats)> swapped = new();
         readonly Queue<Mesh> bakedPool = new();
-        MaterialPropertyBlock mpb;
 
         void Awake()
         {
             cc = GetComponent<CharacterController>();
-            mpb = new MaterialPropertyBlock();
             if (shieldBubble != null)
             {
                 bubbleScale = shieldBubble.transform.localScale;
                 shieldBubble.gameObject.SetActive(false);
-            }
-            if (magnetRing != null)
-            {
-                ringScale = magnetRing.transform.localScale;
-                ringBase = magnetRing.sharedMaterial.GetColor("_BaseColor");
-                magnetRing.gameObject.SetActive(false);
-            }
-            if (magnetRing2 != null)
-            {
-                ring2Scale = magnetRing2.transform.localScale;
-                magnetRing2.gameObject.SetActive(false);
             }
         }
 
@@ -134,36 +117,8 @@ namespace WarriorRun.Player
         void UpdateMagnet(GameManager gm, bool running)
         {
             bool on = running && gm.MagnetActive;
-            if (magnetRing != null)
-            {
-                if (magnetRing.gameObject.activeSelf != on)
-                    magnetRing.gameObject.SetActive(on);
-                if (on)
-                {
-                    magnetRing.transform.Rotate(0f, 160f * Time.deltaTime, 0f, Space.World);
-                    float p = 1f + Mathf.Sin(Time.time * 5.6f) * 0.07f;
-                    magnetRing.transform.localScale = ringScale * p;
-                    mpb.SetColor("_BaseColor", new Color(ringBase.r, ringBase.g, ringBase.b,
-                        ringBase.a * Flick(gm, PowerUpKind.Magnet)));
-                    magnetRing.SetPropertyBlock(mpb);
-                }
-            }
-            // gyro hoop — a steeply tilted ring whose plane sweeps around the runner
-            if (magnetRing2 != null)
-            {
-                if (magnetRing2.gameObject.activeSelf != on)
-                    magnetRing2.gameObject.SetActive(on);
-                if (on)
-                {
-                    magnetRing2.transform.Rotate(0f, -230f * Time.deltaTime, 0f, Space.World);
-                    float p = 1f + Mathf.Sin(Time.time * 5.6f + 1.7f) * 0.09f;
-                    magnetRing2.transform.localScale = ring2Scale * p;
-                    mpb.SetColor("_BaseColor", new Color(ring2Tint.r, ring2Tint.g, ring2Tint.b,
-                        ringBase.a * Flick(gm, PowerUpKind.Magnet)));
-                    magnetRing2.SetPropertyBlock(mpb);
-                }
-            }
-            SetRate(magnetSwirl, on ? 34f * Flick(gm, PowerUpKind.Magnet) : 0f);
+            // the pull is the tell — sparks spiralling into the runner
+            SetRate(magnetSwirl, on ? 44f * Flick(gm, PowerUpKind.Magnet) : 0f);
         }
 
         // ---- boost flames + spring sparks ----
