@@ -99,6 +99,47 @@ namespace WarriorRun.EditorTools
             Log("APK -> " + outPath + " (" + report.summary.totalSize + " bytes)");
         }
 
+        /// <summary>Play Store bundle: batch build via
+        /// -executeMethod WarriorRun.EditorTools.WarriorRunBuilder.BuildAndroidBundle
+        /// Signed with whatever keystore PlayerSettings is configured for
+        /// (debug keystore when androidUseCustomKeystore is off).</summary>
+        public static void BuildAndroidBundle()
+        {
+            PlayerSettings.SetGraphicsAPIs(BuildTarget.Android,
+                new[] { UnityEngine.Rendering.GraphicsDeviceType.OpenGLES3 });
+            EditorUserBuildSettings.buildAppBundle = true;
+
+            // Signing: keystore lives in gitignored Keystore/, creds come from
+            // Keystore/creds.txt ("storePass|keyPass") — never persisted into
+            // ProjectSettings.asset, so secrets stay out of version control.
+            const string ksPath = "Keystore/warriorrun-upload.keystore";
+            const string credsPath = "Keystore/creds.txt";
+            if (File.Exists(ksPath) && File.Exists(credsPath))
+            {
+                var parts = File.ReadAllText(credsPath).Trim().Split('|');
+                PlayerSettings.Android.useCustomKeystore = true;
+                PlayerSettings.Android.keystoreName = Path.GetFullPath(ksPath);
+                PlayerSettings.Android.keystorePass = parts[0];
+                PlayerSettings.Android.keyaliasName = "warriorrun";
+                PlayerSettings.Android.keyaliasPass = parts.Length > 1 ? parts[1] : parts[0];
+                Log("Signing with custom keystore: " + ksPath);
+            }
+            else
+            {
+                Log("No keystore/creds found — bundle will be debug-signed.");
+            }
+
+            string outPath = "Builds/Android/WarriorRun.aab";
+            var args = Environment.GetCommandLineArgs();
+            for (int i = 0; i < args.Length - 1; i++)
+                if (args[i] == "-buildOutput") outPath = args[i + 1];
+            var scenes = new[] { Root + "/Scenes/Menu.unity", Root + "/Scenes/Game.unity" };
+            var report = BuildPipeline.BuildPlayer(scenes, outPath, BuildTarget.Android, BuildOptions.None);
+            if (report.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded)
+                throw new Exception("AAB build failed: " + report.summary.result + " errors=" + report.summary.totalErrors);
+            Log("AAB -> " + outPath + " (" + report.summary.totalSize + " bytes)");
+        }
+
         /// <summary>Development APK — script errors and logs flow to logcat. Diagnostics only.</summary>
         public static void BuildAndroidDev()
         {
