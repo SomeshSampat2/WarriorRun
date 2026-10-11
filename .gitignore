@@ -51,3 +51,8 @@ mono_crash*
 __pycache__/
 *.pyc
 *.log
+
+# Signing keystores — never commit
+*.keystore
+*.jks
+Keystore/
